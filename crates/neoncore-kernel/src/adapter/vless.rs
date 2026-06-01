@@ -1,10 +1,14 @@
 use crate::{
     adapter::OutboundAdapter,
+    dns::DnsResolver,
     session::{KernelNode, TargetAddress},
 };
-use std::io::{Read, Write};
-use std::net::{Ipv4Addr, Ipv6Addr, TcpStream};
-use std::time::Duration;
+use std::net::{Ipv4Addr, Ipv6Addr};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+    time::{timeout, Duration},
+};
 
 pub struct VlessAdapter;
 
@@ -29,6 +33,7 @@ pub enum VlessSecurity {
     Tls,
 }
 
+#[async_trait::async_trait]
 impl OutboundAdapter for VlessAdapter {
     fn validate(node: &KernelNode) -> anyhow::Result<()> {
         let config = VlessConfig::from_node(node)?;
@@ -41,7 +46,11 @@ impl OutboundAdapter for VlessAdapter {
         Ok(())
     }
 
-    fn connect(node: &KernelNode, target: &TargetAddress) -> anyhow::Result<TcpStream> {
+    async fn connect(
+        node: &KernelNode,
+        target: &TargetAddress,
+        resolver: &DnsResolver,
+    ) -> anyhow::Result<TcpStream> {
         let config = VlessConfig::from_node(node)?;
         if config.security != VlessSecurity::None {
             anyhow::bail!("VLESS encrypted transports are not implemented yet");
@@ -50,9 +59,29 @@ impl OutboundAdapter for VlessAdapter {
             anyhow::bail!("only VLESS TCP transport is implemented");
         }
         let request = build_tcp_request(&node.user_id, target)?;
-        let mut stream = TcpStream::connect((config.server.as_str(), config.server_port))?;
-        stream.write_all(&request)?;
-        read_response_header(&mut stream)?;
+        let server = TargetAddress {
+            host: config.server,
+            port: config.server_port,
+        };
+        let addresses = resolver.resolve(&server).await?;
+        let mut stream = None;
+        let mut last_error = None;
+        for address in addresses {
+            match TcpStream::connect(address).await {
+                Ok(value) => {
+                    stream = Some(value);
+                    break;
+                }
+                Err(err) => last_error = Some(err),
+            }
+        }
+        let mut stream = stream.ok_or_else(|| {
+            last_error
+                .map(anyhow::Error::from)
+                .unwrap_or_else(|| anyhow::anyhow!("no resolved address for VLESS server"))
+        })?;
+        stream.write_all(&request).await?;
+        read_response_header(&mut stream).await?;
         Ok(stream)
     }
 }
@@ -136,29 +165,28 @@ fn parse_uuid(value: &str) -> anyhow::Result<[u8; 16]> {
     Ok(bytes)
 }
 
-fn read_response_header(stream: &mut TcpStream) -> anyhow::Result<()> {
-    stream.set_read_timeout(Some(Duration::from_secs(5)))?;
+async fn read_response_header(stream: &mut TcpStream) -> anyhow::Result<()> {
     let mut fixed = [0_u8; 2];
-    stream.read_exact(&mut fixed)?;
+    timeout(Duration::from_secs(5), stream.read_exact(&mut fixed)).await??;
     let addon_len = fixed[1] as usize;
     if addon_len > 0 {
         let mut addon = vec![0_u8; addon_len];
-        stream.read_exact(&mut addon)?;
+        timeout(Duration::from_secs(5), stream.read_exact(&mut addon)).await??;
     }
-    let _ = stream.set_read_timeout(None);
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::session::KernelDnsConfig;
     use serde_json::json;
-    use std::net::{Shutdown, TcpListener};
-    use std::thread;
+    use tokio::net::TcpListener;
 
     #[test]
     fn config_accepts_reality_parameters() {
         let node = KernelNode {
+            id: None,
             protocol: "vless".to_string(),
             server: "edge.example.com".to_string(),
             server_port: 443,
@@ -199,24 +227,23 @@ mod tests {
         assert_eq!(request[22], "example.com".len() as u8);
     }
 
-    #[test]
-    fn tcp_adapter_connects_and_strips_response_header() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    #[tokio::test]
+    async fn tcp_adapter_connects_and_strips_response_header() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        let server = thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
             let mut request = [0_u8; 32];
-            let len = stream.read(&mut request).unwrap();
+            let len = stream.read(&mut request).await.unwrap();
             assert_eq!(request[0], 0);
             assert_eq!(request[18], 1);
             assert!(len > 21);
-            stream.write_all(&[0, 0]).unwrap();
-            stream.write_all(b"payload").unwrap();
-            stream.flush().unwrap();
-            thread::sleep(std::time::Duration::from_millis(50));
-            stream.shutdown(Shutdown::Write).unwrap();
+            stream.write_all(&[0, 0]).await.unwrap();
+            stream.write_all(b"payload").await.unwrap();
+            stream.shutdown().await.unwrap();
         });
         let node = KernelNode {
+            id: None,
             protocol: "vless".to_string(),
             server: "127.0.0.1".to_string(),
             server_port: port,
@@ -230,12 +257,15 @@ mod tests {
             host: "example.com".to_string(),
             port: 443,
         };
+        let resolver = DnsResolver::new(KernelDnsConfig::default());
 
-        let mut stream = VlessAdapter::connect(&node, &target).unwrap();
+        let mut stream = VlessAdapter::connect(&node, &target, &resolver)
+            .await
+            .unwrap();
         let mut payload = [0_u8; 7];
-        stream.read_exact(&mut payload).unwrap();
+        stream.read_exact(&mut payload).await.unwrap();
 
         assert_eq!(&payload, b"payload");
-        server.join().unwrap();
+        server.await.unwrap();
     }
 }

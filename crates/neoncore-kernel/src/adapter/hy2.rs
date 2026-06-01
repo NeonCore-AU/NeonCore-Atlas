@@ -1,5 +1,6 @@
 use crate::{
     adapter::OutboundAdapter,
+    dns::DnsResolver,
     session::{KernelNode, TargetAddress},
 };
 use blake2::{
@@ -7,7 +8,8 @@ use blake2::{
     Blake2b, Digest,
 };
 use rand::RngCore;
-use std::net::{SocketAddr, TcpStream, UdpSocket};
+use std::net::{SocketAddr, UdpSocket};
+use tokio::net::TcpStream;
 
 pub struct Hy2Adapter;
 
@@ -44,13 +46,18 @@ pub struct Hy2UdpMessage {
     pub payload: Vec<u8>,
 }
 
+#[async_trait::async_trait]
 impl OutboundAdapter for Hy2Adapter {
     fn validate(node: &KernelNode) -> anyhow::Result<()> {
         Hy2Config::from_node(node)?;
         anyhow::bail!("Hysteria2 transport is not available yet");
     }
 
-    fn connect(node: &KernelNode, target: &TargetAddress) -> anyhow::Result<TcpStream> {
+    async fn connect(
+        node: &KernelNode,
+        target: &TargetAddress,
+        _resolver: &DnsResolver,
+    ) -> anyhow::Result<TcpStream> {
         Self::validate(node)?;
         let request = build_tcp_request(&target.to_string(), b"");
         anyhow::bail!(
@@ -348,6 +355,7 @@ mod tests {
     #[test]
     fn config_accepts_salamander_password() {
         let node = KernelNode {
+            id: None,
             protocol: "hysteria2".to_string(),
             server: "edge.example.com".to_string(),
             server_port: 443,
@@ -372,6 +380,7 @@ mod tests {
     #[test]
     fn config_rejects_salamander_without_password() {
         let node = KernelNode {
+            id: None,
             protocol: "hy2".to_string(),
             server: "edge.example.com".to_string(),
             server_port: 443,

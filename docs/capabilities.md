@@ -12,11 +12,11 @@ Nodes carry endpoint, protocol, tags, UDP support, and TLS support metadata. The
 
 ## Routing Rules
 
-Routing rules match domains, domain suffixes, domain keywords, CIDR ranges, country codes, or user agents. Actions can proxy through a selected node, connect directly, or reject traffic.
+Routing rules match domains, domain suffixes, domain keywords, and CIDR ranges inside `neoncore-kernel`. Actions can proxy through a selected node, connect directly, or reject traffic. Country-code and user-agent matching remain part of the portable profile model and are not runtime kernel matchers yet.
 
 ## DNS
 
-The DNS model supports system DNS, remote DNS, and parallel fastest-response modes. DNS servers can be UDP, TCP, HTTPS, TLS, or QUIC. Host overrides are represented separately.
+The kernel resolver supports host overrides, system lookups, and IPv6 preference ordering. The portable model also represents remote DNS servers and parallel fastest-response mode; those remote resolver transports are not runtime kernel transports yet.
 
 ## Rewrites
 
@@ -28,12 +28,13 @@ The API includes latency test results, traffic counters, and diagnostic reports 
 
 ## Owned Kernel
 
-`neoncore-kernel` is the in-repository networking runtime. It currently owns the local SOCKS5 listener, session validation, bidirectional TCP relay infrastructure, kernel session schema, and protocol adapter boundaries. Protocol transport adapters are implemented inside this crate rather than by downloading external cores.
+`neoncore-kernel` is the in-repository networking runtime. It currently owns the async TCP runtime, local SOCKS5 and HTTP proxy listeners, session validation, bidirectional TCP relay infrastructure, DNS host mapping, rule-based routing, kernel session schema, structured logs, and protocol adapter boundaries. Protocol transport adapters are implemented inside this crate rather than by downloading external cores.
 
 Current adapter status:
 
 1. Direct TCP relay is available through the local SOCKS5 listener.
-2. VLESS TCP with no encrypted transport has request framing and response-header handling.
-3. Hysteria2 configuration parsing, Salamander datagram obfuscation, TCP request/response framing, and UDP message framing are covered by tests.
-4. VLESS Reality configuration parsing and TCP request framing are covered by tests.
-5. Hysteria2 QUIC transport, VLESS encrypted transports, and AnyTLS are not marked available until their transport handshakes are implemented.
+2. HTTP CONNECT inbound and HTTP proxy outbound are available.
+3. VLESS TCP with no encrypted transport has request framing, response-header handling, and local adapter tests.
+4. Hysteria2 configuration parsing, Salamander datagram obfuscation, TCP request/response framing, and UDP message framing are covered by tests.
+5. VLESS Reality configuration parsing and TCP request framing are covered by tests.
+6. Hysteria2 QUIC transport, VLESS encrypted transports, and AnyTLS are not marked available until their transport handshakes are implemented.
