@@ -3,6 +3,10 @@ name = "neoncore-linux-app"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+
 [dependencies]
 gtk = { package = "gtk4", version = "0.8" }
 adw = { package = "libadwaita", version = "0.6" }
+libc = "0.2"
+neoncore-tun = { path = "../../crates/neoncore-tun" }

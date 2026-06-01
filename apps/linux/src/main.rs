@@ -2,6 +2,8 @@ use adw::{prelude::*, Application};
 use gtk::{Box, Button, Label, ListBox, Orientation};
 use std::collections::HashMap;
 
+mod tun;
+
 const APP_ID: &str = "dev.neoncore.atlas";
 
 fn main() {
@@ -53,7 +55,7 @@ struct AtlasDaemonClient;
 
 impl AtlasDaemonClient {
     fn endpoint_description(&self) -> &'static str {
-        "future Unix domain socket client for neoncore-daemon"
+        "Unix domain socket client with Linux tun/tap packet adapter"
     }
 }
 

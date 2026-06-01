@@ -1,3 +1,4 @@
+import Foundation
 import NetworkExtension
 
 final class PacketTunnelProvider: NEPacketTunnelProvider {
@@ -104,5 +105,4 @@ private struct PacketClassifier {
             return .drop
         }
     }
-}
 }
