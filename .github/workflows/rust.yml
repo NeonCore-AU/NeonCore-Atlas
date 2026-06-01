@@ -1,0 +1,12 @@
+name: Rust
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --all -- --check
+      - run: cargo test --workspace
+      - run: ./i18n/scripts/check-hardcoded-strings.sh
+      - run: ./i18n/scripts/check-missing-translations.sh

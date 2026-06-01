@@ -1,0 +1,23 @@
+name: Platform Build Placeholders
+on: [push, pull_request]
+jobs:
+  android-placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Android build placeholder. No signing secrets required."
+  linux-placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Linux GTK/libadwaita build placeholder."
+  windows-placeholder:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Windows WinUI 3 build placeholder."
+  macos-ios-placeholder:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "macOS and iOS Xcode build placeholders. No signing certificates included."

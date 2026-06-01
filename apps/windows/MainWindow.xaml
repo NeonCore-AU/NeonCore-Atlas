@@ -1,0 +1,11 @@
+<Window x:Class="NeonCore.Atlas.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <NavigationView PaneDisplayMode="Left" x:Uid="nav.dashboard">
+        <StackPanel Spacing="12" Padding="24">
+            <TextBlock x:Uid="app.name" FontSize="28" />
+            <TextBlock x:Uid="connection.status.disconnected" />
+            <Button x:Uid="connection.action.connect" />
+        </StackPanel>
+    </NavigationView>
+</Window>

@@ -1,0 +1,420 @@
+{
+  "sourceLanguage": "en-AU",
+  "strings": {
+    "app.name": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NeonCore Atlas"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NeonCore Atlas"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[NeonCore Atlas~~~~]"
+          }
+        }
+      }
+    },
+    "app.tagline": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open-source advanced network client"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "开源高级网络客户端"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Open-source advanced network client~~~~]"
+          }
+        }
+      }
+    },
+    "nav.dashboard": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dashboard"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仪表板"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Dashboard~~~~]"
+          }
+        }
+      }
+    },
+    "nav.nodes": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nodes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "节点"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Nodes~~~~]"
+          }
+        }
+      }
+    },
+    "nav.profiles": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiles"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Profiles~~~~]"
+          }
+        }
+      }
+    },
+    "nav.routing": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "路由"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Routing~~~~]"
+          }
+        }
+      }
+    },
+    "nav.logs": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logs"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日志"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Logs~~~~]"
+          }
+        }
+      }
+    },
+    "nav.settings": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Settings~~~~]"
+          }
+        }
+      }
+    },
+    "connection.status.disconnected": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已断开"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Disconnected~~~~]"
+          }
+        }
+      }
+    },
+    "connection.action.connect": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Connect~~~~]"
+          }
+        }
+      }
+    },
+    "connection.action.disconnect": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "断开连接"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Disconnect~~~~]"
+          }
+        }
+      }
+    },
+    "nodes.empty.title": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No nodes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有节点"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[No nodes~~~~]"
+          }
+        }
+      }
+    },
+    "nodes.empty.description": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import a subscription or add a server manually to get started."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入订阅或手动添加服务器即可开始。"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Import a subscription or add a server manually to get started.~~~~]"
+          }
+        }
+      }
+    },
+    "profiles.action.import_subscription": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import subscription"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入订阅"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Import subscription~~~~]"
+          }
+        }
+      }
+    },
+    "subscription.import.url_placeholder": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subscription URL"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订阅 URL"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Subscription URL~~~~]"
+          }
+        }
+      }
+    },
+    "settings.language": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "语言"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Language~~~~]"
+          }
+        }
+      }
+    },
+    "accessibility.connect_button": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect or disconnect Atlas"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接或断开 Atlas"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Connect or disconnect Atlas~~~~]"
+          }
+        }
+      }
+    },
+    "tooltip.connect_button": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toggle connection"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换连接"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Toggle connection~~~~]"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "profile.basic",
+  "name": "Basic Profile",
+  "nodes": [],
+  "subscriptions": [],
+  "routing_mode": "rule"
+}

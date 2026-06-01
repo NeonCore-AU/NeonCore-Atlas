@@ -1,0 +1,10 @@
+source_locale: en-AU
+locales:
+  - code: en-AU
+    name: English (Australia)
+    source: true
+  - code: zh-Hans
+    name: Simplified Chinese
+  - code: en-XA
+    name: Pseudolocalized English
+    pseudo: true

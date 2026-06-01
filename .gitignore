@@ -1,0 +1,12 @@
+target/
+.DS_Store
+.idea/
+.vscode/
+DerivedData/
+build/
+.gradle/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+bin/
+obj/

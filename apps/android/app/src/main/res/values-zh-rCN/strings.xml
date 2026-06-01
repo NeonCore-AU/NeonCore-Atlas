@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">NeonCore Atlas</string>
+    <string name="app_tagline">开源高级网络客户端</string>
+    <string name="nav_dashboard">仪表板</string>
+    <string name="nav_nodes">节点</string>
+    <string name="nav_profiles">配置</string>
+    <string name="nav_routing">路由</string>
+    <string name="nav_logs">日志</string>
+    <string name="nav_settings">设置</string>
+    <string name="connection_status_disconnected">已断开</string>
+    <string name="connection_action_connect">连接</string>
+    <string name="connection_action_disconnect">断开连接</string>
+    <string name="nodes_empty_title">没有节点</string>
+    <string name="nodes_empty_description">导入订阅或手动添加服务器即可开始。</string>
+    <string name="profiles_action_import_subscription">导入订阅</string>
+    <string name="subscription_import_url_placeholder">订阅 URL</string>
+    <string name="settings_language">语言</string>
+    <string name="accessibility_connect_button">连接或断开 Atlas</string>
+    <string name="tooltip_connect_button">切换连接</string>
+</resources>

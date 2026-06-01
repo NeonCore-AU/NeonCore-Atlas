@@ -1,0 +1,3 @@
+<resources>
+    <plurals name="nodes_count"><item quantity="one">%d node</item><item quantity="other">%d nodes</item></plurals>
+</resources>

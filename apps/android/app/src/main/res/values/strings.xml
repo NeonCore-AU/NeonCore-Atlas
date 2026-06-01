@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">NeonCore Atlas</string>
+    <string name="app_tagline">Open-source advanced network client</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_nodes">Nodes</string>
+    <string name="nav_profiles">Profiles</string>
+    <string name="nav_routing">Routing</string>
+    <string name="nav_logs">Logs</string>
+    <string name="nav_settings">Settings</string>
+    <string name="connection_status_disconnected">Disconnected</string>
+    <string name="connection_action_connect">Connect</string>
+    <string name="connection_action_disconnect">Disconnect</string>
+    <string name="nodes_empty_title">No nodes</string>
+    <string name="nodes_empty_description">Import a subscription or add a server manually to get started.</string>
+    <string name="profiles_action_import_subscription">Import subscription</string>
+    <string name="subscription_import_url_placeholder">Subscription URL</string>
+    <string name="settings_language">Language</string>
+    <string name="accessibility_connect_button">Connect or disconnect Atlas</string>
+    <string name="tooltip_connect_button">Toggle connection</string>
+</resources>

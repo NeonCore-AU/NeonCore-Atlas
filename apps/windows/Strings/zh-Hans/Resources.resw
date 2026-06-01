@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="app.name" xml:space="preserve"><value>NeonCore Atlas</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="app.tagline" xml:space="preserve"><value>开源高级网络客户端</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="nav.dashboard" xml:space="preserve"><value>仪表板</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="nav.nodes" xml:space="preserve"><value>节点</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="nav.profiles" xml:space="preserve"><value>配置</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="nav.routing" xml:space="preserve"><value>路由</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="nav.logs" xml:space="preserve"><value>日志</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="nav.settings" xml:space="preserve"><value>设置</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="connection.status.disconnected" xml:space="preserve"><value>已断开</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="connection.action.connect" xml:space="preserve"><value>连接</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="connection.action.disconnect" xml:space="preserve"><value>断开连接</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="nodes.empty.title" xml:space="preserve"><value>没有节点</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="nodes.empty.description" xml:space="preserve"><value>导入订阅或手动添加服务器即可开始。</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="profiles.action.import_subscription" xml:space="preserve"><value>导入订阅</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="subscription.import.url_placeholder" xml:space="preserve"><value>订阅 URL</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="settings.language" xml:space="preserve"><value>语言</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="accessibility.connect_button" xml:space="preserve"><value>连接或断开 Atlas</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="tooltip.connect_button" xml:space="preserve"><value>切换连接</value><comment>Semantic Atlas localization key.</comment></data>
+</root>
