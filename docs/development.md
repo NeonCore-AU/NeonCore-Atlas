@@ -11,7 +11,10 @@ cargo run -p neoncore-cli -- dns
 cargo run -p neoncore-cli -- latency
 cargo run -p neoncore-daemon -- run
 cargo run -p neoncore-kernel -- check --session examples/kernel/direct-session.json
+cargo run -p neoncore-kernel -- check --session examples/kernel/vless-tcp-session.json
 ```
+
+The Hysteria2 and VLESS Reality example sessions are stored under `examples/kernel/` as parser fixtures. Their `check` command is expected to fail until those encrypted transports are marked available.
 
 ## macOS App
 

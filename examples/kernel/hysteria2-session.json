@@ -1,0 +1,15 @@
+{
+  "listen_host": "127.0.0.1",
+  "listen_port": 7890,
+  "selected_node": {
+    "protocol": "hysteria2",
+    "server": "hy2.example.net",
+    "server_port": 60000,
+    "user_id": "00000000-0000-0000-0000-000000000000",
+    "parameters": {
+      "sni": "hy2.example.net",
+      "obfs": "salamander",
+      "obfs-password": "example"
+    }
+  }
+}

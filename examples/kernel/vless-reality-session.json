@@ -1,0 +1,19 @@
+{
+  "listen_host": "127.0.0.1",
+  "listen_port": 7890,
+  "selected_node": {
+    "protocol": "vless",
+    "server": "203.0.113.10",
+    "server_port": 443,
+    "user_id": "00000000-0000-0000-0000-000000000000",
+    "parameters": {
+      "security": "reality",
+      "type": "tcp",
+      "sni": "www.example.com",
+      "fp": "chrome",
+      "pbk": "example",
+      "sid": "example",
+      "flow": "xtls-rprx-vision"
+    }
+  }
+}

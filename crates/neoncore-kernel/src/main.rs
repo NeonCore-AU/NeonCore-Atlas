@@ -1,5 +1,4 @@
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
@@ -11,6 +10,11 @@ use std::{
     thread,
     time::Duration,
 };
+
+mod adapter;
+mod session;
+
+use session::{KernelNode, KernelSession, TargetAddress};
 
 #[derive(Parser)]
 #[command(name = "neoncore-kernel")]
@@ -29,22 +33,6 @@ enum Command {
         #[arg(long)]
         session: PathBuf,
     },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct KernelSession {
-    listen_host: String,
-    listen_port: u16,
-    selected_node: KernelNode,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct KernelNode {
-    protocol: String,
-    server: String,
-    server_port: u16,
-    user_id: String,
-    parameters: serde_json::Value,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -96,17 +84,8 @@ fn validate_session(session: &KernelSession) -> anyhow::Result<()> {
     if session.selected_node.server.is_empty() || session.selected_node.server_port == 0 {
         anyhow::bail!("selected node endpoint is invalid");
     }
-    if !supports_protocol(&session.selected_node.protocol) {
-        anyhow::bail!(
-            "protocol {} is parsed but its transport adapter is not implemented yet",
-            session.selected_node.protocol
-        );
-    }
+    adapter::validate_node(&session.selected_node)?;
     Ok(())
-}
-
-fn supports_protocol(protocol: &str) -> bool {
-    matches!(protocol, "direct")
 }
 
 fn handle_client(mut client: TcpStream, node: KernelNode) -> anyhow::Result<()> {
@@ -133,12 +112,12 @@ fn handle_socks5(mut client: TcpStream, header: [u8; 2], node: KernelNode) -> an
     }
 
     let target = read_socks_target(&mut client, request_head[3])?;
-    let remote = connect_via_node(&node, &target)?;
+    let remote = adapter::connect(&node, &target)?;
     client.write_all(&[0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0])?;
     proxy_bidirectional(client, remote)
 }
 
-fn read_socks_target(client: &mut TcpStream, atyp: u8) -> anyhow::Result<String> {
+fn read_socks_target(client: &mut TcpStream, atyp: u8) -> anyhow::Result<TargetAddress> {
     let host = match atyp {
         0x01 => {
             let mut octets = [0_u8; 4];
@@ -161,17 +140,10 @@ fn read_socks_target(client: &mut TcpStream, atyp: u8) -> anyhow::Result<String>
     };
     let mut port = [0_u8; 2];
     client.read_exact(&mut port)?;
-    Ok(format!("{host}:{}", u16::from_be_bytes(port)))
-}
-
-fn connect_via_node(node: &KernelNode, target: &str) -> anyhow::Result<TcpStream> {
-    match node.protocol.as_str() {
-        "direct" => Ok(TcpStream::connect(target)?),
-        _ => anyhow::bail!(
-            "protocol {} is parsed but its transport adapter is not implemented yet",
-            node.protocol
-        ),
-    }
+    Ok(TargetAddress {
+        host,
+        port: u16::from_be_bytes(port),
+    })
 }
 
 fn proxy_bidirectional(mut left: TcpStream, mut right: TcpStream) -> anyhow::Result<()> {

@@ -1,6 +1,6 @@
 # Capability Model
 
-NeonCore Atlas models advanced network-client features without implementing real tunnelling in this scaffold.
+NeonCore Atlas is moving from product scaffolding into an owned networking runtime. The macOS app imports real subscriptions and starts the in-repository kernel for protocols that the kernel marks as available.
 
 ## Profiles and Subscriptions
 
@@ -28,4 +28,12 @@ The API includes latency test results, traffic counters, and diagnostic reports 
 
 ## Owned Kernel
 
-`neoncore-kernel` is the in-repository networking runtime. It currently owns the local SOCKS5 listener, session validation, bidirectional TCP relay infrastructure, and kernel session schema. Protocol transport adapters are implemented inside this crate rather than by downloading external cores.
+`neoncore-kernel` is the in-repository networking runtime. It currently owns the local SOCKS5 listener, session validation, bidirectional TCP relay infrastructure, kernel session schema, and protocol adapter boundaries. Protocol transport adapters are implemented inside this crate rather than by downloading external cores.
+
+Current adapter status:
+
+1. Direct TCP relay is available through the local SOCKS5 listener.
+2. VLESS TCP with no encrypted transport has request framing and response-header handling.
+3. Hysteria2 configuration parsing, Salamander datagram obfuscation, and TCP request framing are covered by tests.
+4. VLESS Reality configuration parsing and TCP request framing are covered by tests.
+5. Hysteria2 QUIC transport, VLESS encrypted transports, and AnyTLS are not marked available until their transport handshakes are implemented.
