@@ -414,6 +414,972 @@
           }
         }
       }
+    },
+    "topbar.control_plane": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control Plane"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "控制台"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Çõñţŕõļ Þļáñé~~~~]"
+          }
+        }
+      }
+    },
+    "nav.diagnostics": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "诊断"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ðîáĝñõšţîçš~~~~]"
+          }
+        }
+      }
+    },
+    "dashboard.hero.title": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas control plane"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas 控制台"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Áţļáš çõñţŕõļ þļáñé~~~~]"
+          }
+        }
+      }
+    },
+    "dashboard.hero.subtitle": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage local profiles, nodes, routing, DNS, diagnostics, and mock connection state."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理本地配置、节点、路由、DNS、诊断和模拟连接状态。"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ṁáñáĝé ļõçáļ þŕõƒîļéš, ñõðéš, ŕõûţîñĝ, ÐÑŠ, ðîáĝñõšţîçš, áñð ɱõçķ çõññéçţîõñ šţáţé.~~~~]"
+          }
+        }
+      }
+    },
+    "metric.nodes": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nodes"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "节点"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ñõðéš~~~~]"
+          }
+        }
+      }
+    },
+    "metric.profiles": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profiles"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Þŕõƒîļéš~~~~]"
+          }
+        }
+      }
+    },
+    "metric.latency": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latency"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "延迟"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ļáţéñçý~~~~]"
+          }
+        }
+      }
+    },
+    "metric.traffic": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traffic"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "流量"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ţŕáƒƒîç~~~~]"
+          }
+        }
+      }
+    },
+    "metric.ready": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就绪"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ŕéáðý~~~~]"
+          }
+        }
+      }
+    },
+    "metric.loaded": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loaded"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已加载"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ļõáðéð~~~~]"
+          }
+        }
+      }
+    },
+    "metric.latest": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latest"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最新"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ļáţéšţ~~~~]"
+          }
+        }
+      }
+    },
+    "metric.mock_runtime": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mock runtime"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模拟运行时"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ṁõçķ ŕûñţîɱé~~~~]"
+          }
+        }
+      }
+    },
+    "metric.session": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会话"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Šéššîõñ~~~~]"
+          }
+        }
+      }
+    },
+    "empty.logs.description": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Events from local mock workflows appear here."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本地模拟工作流事件会显示在这里。"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Éṽéñţš ƒŕõɱ ļõçáļ ɱõçķ ŵõŕķƒļõŵš áþþéáŕ héŕé.~~~~]"
+          }
+        }
+      }
+    },
+    "topbar.status": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Status"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "状态"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Šţáţûš~~~~]"
+          }
+        }
+      }
+    },
+    "routing.action.add_rule": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add rule"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加规则"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Áðð ŕûļé~~~~]"
+          }
+        }
+      }
+    },
+    "dns.title": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DNS"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DNS"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[ÐÑŠ~~~~]"
+          }
+        }
+      }
+    },
+    "dns.mode.system": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "系统"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Šýšţéɱ~~~~]"
+          }
+        }
+      }
+    },
+    "dns.mode.remote": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remote"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "远程"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ŕéɱõţé~~~~]"
+          }
+        }
+      }
+    },
+    "dns.mode.parallel": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parallel"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "并行"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Þáŕáļļéļ~~~~]"
+          }
+        }
+      }
+    },
+    "dns.prefer_ipv6": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prefer IPv6"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "优先 IPv6"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Þŕéƒéŕ ÎÞṽ6~~~~]"
+          }
+        }
+      }
+    },
+    "rewrite.title": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rewrite rules"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重写规则"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ŕéŵŕîţé ŕûļéš~~~~]"
+          }
+        }
+      }
+    },
+    "rewrite.action.add": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add rewrite"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加重写"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Áðð ŕéŵŕîţé~~~~]"
+          }
+        }
+      }
+    },
+    "settings.enabled": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enabled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已启用"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Éñáβļéð~~~~]"
+          }
+        }
+      }
+    },
+    "settings.disabled": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disabled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已停用"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ðîšáβļéð~~~~]"
+          }
+        }
+      }
+    },
+    "diagnostics.action.run": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run diagnostics"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "运行诊断"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ŕûñ ðîáĝñõšţîçš~~~~]"
+          }
+        }
+      }
+    },
+    "diagnostics.daemon": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daemon"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "守护进程"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ðáéɱõñ~~~~]"
+          }
+        }
+      }
+    },
+    "diagnostics.profile": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile checks"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置检查"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Þŕõƒîļé çhéçķš~~~~]"
+          }
+        }
+      }
+    },
+    "diagnostics.latency": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latency run"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "延迟测试"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ļáţéñçý ŕûñ~~~~]"
+          }
+        }
+      }
+    },
+    "settings.launch_at_login": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch at login"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登录时启动"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ļáûñçh áţ ļõĝîñ~~~~]"
+          }
+        }
+      }
+    },
+    "settings.show_advanced": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show advanced controls"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示高级控制"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Šhõŵ áðṽáñçéð çõñţŕõļš~~~~]"
+          }
+        }
+      }
+    },
+    "settings.debug_logs": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Debug logs"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调试日志"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ðéβûĝ ļõĝš~~~~]"
+          }
+        }
+      }
+    },
+    "log.app_ready": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas app ready"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atlas 应用已就绪"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Áţļáš áþþ ŕéáðý~~~~]"
+          }
+        }
+      }
+    },
+    "log.daemon_mock_ready": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mock daemon client ready"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模拟守护进程客户端已就绪"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ṁõçķ ðáéɱõñ çļîéñţ ŕéáðý~~~~]"
+          }
+        }
+      }
+    },
+    "log.disconnected": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnected from mock session"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已断开模拟会话"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ðîšçõññéçţéð ƒŕõɱ ɱõçķ šéššîõñ~~~~]"
+          }
+        }
+      }
+    },
+    "log.connected": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected to mock session"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接到模拟会话"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Çõññéçţéð ţõ ɱõçķ šéššîõñ~~~~]"
+          }
+        }
+      }
+    },
+    "log.node_selected": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Node selected and connected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选择并连接节点"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ñõðé šéļéçţéð áñð çõññéçţéð~~~~]"
+          }
+        }
+      }
+    },
+    "log.node_added": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual node added"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已添加手动节点"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ṁáñûáļ ñõðé áððéð~~~~]"
+          }
+        }
+      }
+    },
+    "log.latency_completed": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latency test completed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "延迟测试已完成"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ļáţéñçý ţéšţ çõɱþļéţéð~~~~]"
+          }
+        }
+      }
+    },
+    "log.rule_added": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routing rule added"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已添加路由规则"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ŕõûţîñĝ ŕûļé áððéð~~~~]"
+          }
+        }
+      }
+    },
+    "log.rewrite_added": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rewrite rule added"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已添加重写规则"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ŕéŵŕîţé ŕûļé áððéð~~~~]"
+          }
+        }
+      }
+    },
+    "log.diagnostics_completed": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics completed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "诊断已完成"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ðîáĝñõšţîçš çõɱþļéţéð~~~~]"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
