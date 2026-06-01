@@ -1,9 +1,9 @@
-use atlas_core::RoutingMode;
 use clap::{Parser, Subcommand, ValueEnum};
+use neoncore_core::RoutingMode;
 use std::collections::HashMap;
 
 #[derive(Parser)]
-#[command(name = "atlas")]
+#[command(name = "neoncore")]
 struct Cli {
     #[command(subcommand)]
     command: Command,

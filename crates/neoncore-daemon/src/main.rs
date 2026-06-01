@@ -1,10 +1,10 @@
-use atlas_api::HealthResponse;
-use atlas_engine::KernelEngine;
 use clap::{Parser, Subcommand};
+use neoncore_api::HealthResponse;
+use neoncore_engine::KernelEngine;
 use std::{collections::HashMap, thread, time::Duration};
 
 #[derive(Parser)]
-#[command(name = "atlas-daemon")]
+#[command(name = "neoncore-daemon")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
         ),
         Command::Health => {
             let health = HealthResponse {
-                service: "atlas-daemon".to_string(),
+                service: "neoncore-daemon".to_string(),
                 healthy: true,
                 version: env!("CARGO_PKG_VERSION").to_string(),
             };
@@ -48,7 +48,7 @@ fn run_daemon(i18n: &I18n) -> anyhow::Result<()> {
     // - Unix domain socket on macOS/Linux.
     // - Named pipe on Windows.
     // - Optional localhost HTTP/gRPC for developer tooling later.
-    println!(r#"{{"level":"info","target":"atlas-daemon","event":"startup"}}"#);
+    println!(r#"{{"level":"info","target":"neoncore-daemon","event":"startup"}}"#);
     println!("{}", i18n.tr("daemon-running", &[]));
     loop {
         thread::sleep(Duration::from_secs(60));

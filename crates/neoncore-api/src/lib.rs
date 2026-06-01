@@ -1,8 +1,8 @@
-use atlas_core::{
+use neoncore_core::{
     DiagnosticReport, DnsConfig, LatencyTestResult, Node, Profile, RewriteRule, RoutingMode,
     RoutingRule, TrafficStats,
 };
-use atlas_engine::EngineStatus;
+use neoncore_engine::EngineStatus;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

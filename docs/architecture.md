@@ -4,21 +4,21 @@ NeonCore Atlas separates portable network-client logic from platform-specific UI
 
 ## Atlas Core
 
-`atlas-core` contains pure Rust data models and parsing stubs. It has no OS-specific code, which keeps it usable from desktop daemons, CLIs, mobile adapters, and future FFI bindings.
+`neoncore-core` contains pure Rust data models and parsing stubs. It has no OS-specific code, which keeps it usable from desktop daemons, CLIs, mobile adapters, and future FFI bindings.
 
 ## Atlas Engine
 
-`atlas-engine` defines the `Engine` trait and `EngineStatus`. The runtime target is the owned `neoncore-kernel` binary, with platform apps and daemons calling it through explicit session files and IPC.
+`neoncore-engine` defines the `Engine` trait and `EngineStatus`. The runtime target is the owned `neoncore-kernel` binary, with platform apps and daemons calling it through explicit session files and IPC.
 
 ## Atlas API
 
-`atlas-api` defines JSON-serializable request and response types. It intentionally does not implement networking yet. The daemon, CLI, and GUIs can share a stable command vocabulary before IPC is chosen.
+`neoncore-api` defines JSON-serializable request and response types. It intentionally does not implement networking yet. The daemon, CLI, and GUIs can share a stable command vocabulary before IPC is chosen.
 
 The first command vocabulary covers status, connect, disconnect, profiles, nodes, subscriptions, routing rules, DNS updates, rewrite rules, latency testing, traffic statistics, diagnostics, and profile export.
 
 ## Desktop Daemon
 
-`atlas-daemon` is the future privileged or background service layer. IPC options under consideration are Unix domain sockets on macOS/Linux, named pipes on Windows, and optional localhost HTTP/gRPC for developer tooling.
+`neoncore-daemon` is the future privileged or background service layer. IPC options under consideration are Unix domain sockets on macOS/Linux, named pipes on Windows, and optional localhost HTTP/gRPC for developer tooling.
 
 ## Native GUIs
 

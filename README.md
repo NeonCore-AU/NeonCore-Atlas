@@ -8,20 +8,20 @@ Atlas does not include paid service credentials, analytics, telemetry, or real t
 
 ```mermaid
 flowchart TD
-    GUI[Native platform GUIs] --> API[atlas-api types]
-    CLI[atlas CLI] --> API
-    API --> Daemon[atlas-daemon]
-    Daemon --> Engine[atlas-engine]
-    Engine --> Core[atlas-core]
+    GUI[Native platform GUIs] --> API[neoncore-api types]
+    CLI[neoncore CLI] --> API
+    API --> Daemon[neoncore-daemon]
+    Daemon --> Engine[neoncore-engine]
+    Engine --> Core[neoncore-core]
     Mobile[iOS Packet Tunnel / Android VpnService adapters] --> Core
 ```
 
-- `atlas-core`: pure Rust profile, node, subscription, routing, and state models.
-- `atlas-engine`: engine abstraction for the owned `neoncore-kernel` runtime.
+- `neoncore-core`: pure Rust profile, node, subscription, routing, and state models.
+- `neoncore-engine`: engine abstraction for the owned `neoncore-kernel` runtime.
 - `neoncore-kernel`: the owned local networking kernel binary.
-- `atlas-api`: serde-compatible local API request and response types shared by CLI, daemon, and GUIs.
-- `atlas-daemon`: desktop service process scaffold for Windows, macOS, and Linux.
-- `atlas-cli`: cross-platform command-line client with localized output.
+- `neoncore-api`: serde-compatible local API request and response types shared by CLI, daemon, and GUIs.
+- `neoncore-daemon`: desktop service process scaffold for Windows, macOS, and Linux.
+- `neoncore-cli`: cross-platform command-line client with localized output.
 - Native apps: SwiftUI for Apple platforms, Kotlin/Compose for Android, WinUI 3 for Windows, GTK4/libadwaita for Linux.
 - Capability scaffolds: subscriptions, profiles, routing rules, DNS settings, rewrite rules, latency tests, traffic statistics, diagnostics, and profile export.
 
@@ -44,14 +44,14 @@ English (Australia) (`en-AU`) is the source language. Initial locales are `en-AU
 
 ```sh
 cargo test --workspace
-cargo run -p atlas-cli -- status
-cargo run -p atlas-cli -- diagnostics
-cargo run -p atlas-cli -- stats
-cargo run -p atlas-daemon -- health
+cargo run -p neoncore-cli -- status
+cargo run -p neoncore-cli -- diagnostics
+cargo run -p neoncore-cli -- stats
+cargo run -p neoncore-daemon -- health
 ```
 
 Platform app folders contain native project skeletons and local README files where additional SDK tooling is required.
 
 ## Current Status
 
-This repository is a real starting scaffold. It compiles the Rust workspace, includes models and tests, and demonstrates native UI/i18n structure. It does not implement real proxy, VPN, TUN, firewall, subscription protocol parsing, or daemon IPC yet.
+This repository is a real starting scaffold. It compiles the Rust workspace, includes models and tests, demonstrates native UI/i18n structure, and parses subscription node records in the macOS app. Full proxy transport adapters, VPN, TUN, firewall integration, and daemon IPC are still in progress.

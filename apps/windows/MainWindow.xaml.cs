@@ -8,5 +8,5 @@ public sealed partial class MainWindow : Microsoft.UI.Xaml.Window
 
 public sealed class AtlasDaemonClient
 {
-    public string EndpointDescription => "Future named-pipe client for atlas-daemon";
+    public string EndpointDescription => "Future named-pipe client for neoncore-daemon";
 }

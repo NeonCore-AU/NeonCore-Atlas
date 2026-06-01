@@ -1,12 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/atlas-core",
-    "crates/atlas-engine",
-    "crates/atlas-api",
-    "crates/atlas-daemon",
-    "crates/atlas-cli",
-    "crates/atlas-updater",
+    "crates/neoncore-core",
+    "crates/neoncore-engine",
+    "crates/neoncore-api",
+    "crates/neoncore-daemon",
+    "crates/neoncore-cli",
+    "crates/neoncore-updater",
     "crates/neoncore-kernel",
 ]
 

@@ -1,5 +1,5 @@
 [package]
-name = "atlas-updater"
+name = "neoncore-core"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
@@ -8,3 +8,4 @@ rust-version.workspace = true
 
 [dependencies]
 serde.workspace = true
+thiserror.workspace = true

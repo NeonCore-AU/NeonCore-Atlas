@@ -53,7 +53,7 @@ struct AtlasDaemonClient;
 
 impl AtlasDaemonClient {
     fn endpoint_description(&self) -> &'static str {
-        "future Unix domain socket client for atlas-daemon"
+        "future Unix domain socket client for neoncore-daemon"
     }
 }
 

@@ -1,4 +1,4 @@
-use atlas_core::{ConnectionState, Profile};
+use neoncore_core::{ConnectionState, Profile};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -5,11 +5,11 @@
 ```sh
 cargo fmt --all
 cargo test --workspace
-cargo run -p atlas-cli -- status
-cargo run -p atlas-cli -- rules
-cargo run -p atlas-cli -- dns
-cargo run -p atlas-cli -- latency
-cargo run -p atlas-daemon -- run
+cargo run -p neoncore-cli -- status
+cargo run -p neoncore-cli -- rules
+cargo run -p neoncore-cli -- dns
+cargo run -p neoncore-cli -- latency
+cargo run -p neoncore-daemon -- run
 cargo run -p neoncore-kernel -- check --session examples/kernel/direct-session.json
 ```
 

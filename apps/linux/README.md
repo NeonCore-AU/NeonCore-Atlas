@@ -8,4 +8,4 @@ Install dependencies on Debian/Ubuntu-like systems:
 sudo apt install libgtk-4-dev libadwaita-1-dev
 ```
 
-Future work will package the app and connect it to `atlas-daemon` over a Unix domain socket.
+Future work will package the app and connect it to `neoncore-daemon` over a Unix domain socket.

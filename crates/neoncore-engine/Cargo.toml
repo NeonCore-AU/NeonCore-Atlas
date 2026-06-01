@@ -1,5 +1,5 @@
 [package]
-name = "atlas-api"
+name = "neoncore-engine"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
@@ -7,6 +7,6 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-atlas-core = { path = "../atlas-core" }
-atlas-engine = { path = "../atlas-engine" }
+neoncore-core = { path = "../neoncore-core" }
+anyhow.workspace = true
 serde.workspace = true
