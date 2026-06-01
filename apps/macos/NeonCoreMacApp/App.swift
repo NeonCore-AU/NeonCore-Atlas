@@ -231,6 +231,9 @@ private enum SubscriptionParser {
     }
 
     private static func parseNode(_ line: String) -> NeonCoreNode? {
+        if line.lowercased().hasPrefix("ss://") {
+            return parseShadowsocksNode(line)
+        }
         guard let components = URLComponents(string: line),
               let scheme = components.scheme?.lowercased(),
               let host = components.host,
@@ -253,6 +256,44 @@ private enum SubscriptionParser {
             query: query,
             latency: nil,
             tags: tags
+        )
+    }
+
+    private static func parseShadowsocksNode(_ line: String) -> NeonCoreNode? {
+        let fragment = URLComponents(string: line)?.percentEncodedFragment?.removingPercentEncoding
+        let withoutScheme = String(line.dropFirst("ss://".count))
+        let body = withoutScheme.split(separator: "#", maxSplits: 1).first.map(String.init) ?? withoutScheme
+        let decodedBody: String
+        if body.contains("@") {
+            decodedBody = body
+        } else {
+            let padded = body + String(repeating: "=", count: (4 - body.count % 4) % 4)
+            guard let data = Data(base64Encoded: padded),
+                  let decoded = String(data: data, encoding: .utf8)
+            else { return nil }
+            decodedBody = decoded
+        }
+        guard let at = decodedBody.lastIndex(of: "@") else { return nil }
+        let credentials = String(decodedBody[..<at])
+        let endpoint = String(decodedBody[decodedBody.index(after: at)...])
+        guard let separator = credentials.firstIndex(of: ":") else { return nil }
+        let method = String(credentials[..<separator]).removingPercentEncoding ?? String(credentials[..<separator])
+        let password = String(credentials[credentials.index(after: separator)...]).removingPercentEncoding ?? String(credentials[credentials.index(after: separator)...])
+        guard let authority = URLComponents(string: "neoncore://\(endpoint)"),
+              let host = authority.host,
+              let port = authority.port
+        else { return nil }
+        let name = fragment ?? "SS \(host)"
+        return NeonCoreNode(
+            name: name,
+            region: region(from: name),
+            host: host,
+            port: port,
+            userID: password,
+            protocolName: "shadowsocks",
+            query: ["method": method],
+            latency: nil,
+            tags: ["SS", method.uppercased()]
         )
     }
 

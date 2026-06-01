@@ -1,5 +1,5 @@
 use crate::{
-    adapter::OutboundAdapter,
+    adapter::{boxed_stream, BoxedProxyStream, OutboundAdapter},
     dns::DnsResolver,
     session::{KernelNode, TargetAddress},
 };
@@ -17,12 +17,12 @@ impl OutboundAdapter for DirectAdapter {
         _node: &KernelNode,
         target: &TargetAddress,
         resolver: &DnsResolver,
-    ) -> anyhow::Result<TcpStream> {
+    ) -> anyhow::Result<BoxedProxyStream> {
         let addresses = resolver.resolve(target).await?;
         let mut last_error = None;
         for address in addresses {
             match TcpStream::connect(address).await {
-                Ok(stream) => return Ok(stream),
+                Ok(stream) => return Ok(boxed_stream(stream)),
                 Err(err) => last_error = Some(err),
             }
         }

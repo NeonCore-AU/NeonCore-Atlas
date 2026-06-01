@@ -1,11 +1,11 @@
 use crate::{
-    adapter::OutboundAdapter,
+    adapter::{boxed_stream, BoxedProxyStream, OutboundAdapter},
     dns::DnsResolver,
     session::{KernelNode, TargetAddress},
 };
 use std::net::{Ipv4Addr, Ipv6Addr};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
     time::{timeout, Duration},
 };
@@ -20,6 +20,7 @@ pub struct VlessConfig {
     pub sni: Option<String>,
     pub flow: Option<String>,
     pub security: VlessSecurity,
+    pub insecure: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,10 +37,7 @@ pub enum VlessSecurity {
 #[async_trait::async_trait]
 impl OutboundAdapter for VlessAdapter {
     fn validate(node: &KernelNode) -> anyhow::Result<()> {
-        let config = VlessConfig::from_node(node)?;
-        if config.security != VlessSecurity::None {
-            anyhow::bail!("VLESS encrypted transports are not available yet");
-        }
+        VlessConfig::from_node(node)?;
         if node.parameter("type").unwrap_or("tcp") != "tcp" {
             anyhow::bail!("only VLESS TCP transport is available");
         }
@@ -50,39 +48,32 @@ impl OutboundAdapter for VlessAdapter {
         node: &KernelNode,
         target: &TargetAddress,
         resolver: &DnsResolver,
-    ) -> anyhow::Result<TcpStream> {
+    ) -> anyhow::Result<BoxedProxyStream> {
         let config = VlessConfig::from_node(node)?;
-        if config.security != VlessSecurity::None {
-            anyhow::bail!("VLESS encrypted transports are not implemented yet");
-        }
         if node.parameter("type").unwrap_or("tcp") != "tcp" {
             anyhow::bail!("only VLESS TCP transport is implemented");
         }
         let request = build_tcp_request(&node.user_id, target)?;
-        let server = TargetAddress {
-            host: config.server,
-            port: config.server_port,
-        };
-        let addresses = resolver.resolve(&server).await?;
-        let mut stream = None;
-        let mut last_error = None;
-        for address in addresses {
-            match TcpStream::connect(address).await {
-                Ok(value) => {
-                    stream = Some(value);
-                    break;
-                }
-                Err(err) => last_error = Some(err),
+        let stream = connect_tcp(&config.server, config.server_port, resolver).await?;
+        match &config.security {
+            VlessSecurity::None => {
+                let mut stream = stream;
+                stream.write_all(&request).await?;
+                read_response_header(&mut stream).await?;
+                Ok(boxed_stream(stream))
+            }
+            VlessSecurity::Tls | VlessSecurity::Reality { .. } => {
+                let sni = config.sni.as_deref().unwrap_or(&config.server);
+                let connector = native_tls::TlsConnector::builder()
+                    .danger_accept_invalid_certs(config.insecure)
+                    .build()?;
+                let connector = tokio_native_tls::TlsConnector::from(connector);
+                let mut stream = connector.connect(sni, stream).await?;
+                stream.write_all(&request).await?;
+                read_response_header(&mut stream).await?;
+                Ok(boxed_stream(stream))
             }
         }
-        let mut stream = stream.ok_or_else(|| {
-            last_error
-                .map(anyhow::Error::from)
-                .unwrap_or_else(|| anyhow::anyhow!("no resolved address for VLESS server"))
-        })?;
-        stream.write_all(&request).await?;
-        read_response_header(&mut stream).await?;
-        Ok(stream)
     }
 }
 
@@ -118,8 +109,30 @@ impl VlessConfig {
             sni: node.parameter("sni").map(str::to_string),
             flow: node.parameter("flow").map(str::to_string),
             security,
+            insecure: node
+                .parameter("insecure")
+                .map(|value| matches!(value, "1" | "true" | "yes"))
+                .unwrap_or(false),
         })
     }
+}
+
+async fn connect_tcp(host: &str, port: u16, resolver: &DnsResolver) -> anyhow::Result<TcpStream> {
+    let server = TargetAddress {
+        host: host.to_string(),
+        port,
+    };
+    let addresses = resolver.resolve(&server).await?;
+    let mut last_error = None;
+    for address in addresses {
+        match TcpStream::connect(address).await {
+            Ok(value) => return Ok(value),
+            Err(err) => last_error = Some(err),
+        }
+    }
+    Err(last_error
+        .map(anyhow::Error::from)
+        .unwrap_or_else(|| anyhow::anyhow!("no resolved address for VLESS server")))
 }
 
 pub fn build_tcp_request(uuid: &str, target: &TargetAddress) -> anyhow::Result<Vec<u8>> {
@@ -165,7 +178,10 @@ fn parse_uuid(value: &str) -> anyhow::Result<[u8; 16]> {
     Ok(bytes)
 }
 
-async fn read_response_header(stream: &mut TcpStream) -> anyhow::Result<()> {
+async fn read_response_header<S>(stream: &mut S) -> anyhow::Result<()>
+where
+    S: AsyncRead + Unpin,
+{
     let mut fixed = [0_u8; 2];
     timeout(Duration::from_secs(5), stream.read_exact(&mut fixed)).await??;
     let addon_len = fixed[1] as usize;
@@ -204,6 +220,24 @@ mod tests {
         assert_eq!(config.uuid[0], 0x00);
         assert_eq!(config.uuid[15], 0xff);
         assert_eq!(config.sni, Some("www.example.com".to_string()));
+    }
+
+    #[test]
+    fn config_accepts_tls_tcp_parameters() {
+        let node = KernelNode {
+            id: None,
+            protocol: "vless".to_string(),
+            server: "edge.example.com".to_string(),
+            server_port: 443,
+            user_id: "00112233-4455-6677-8899-aabbccddeeff".to_string(),
+            parameters: json!({
+                "security": "tls",
+                "type": "tcp",
+                "sni": "www.example.com"
+            }),
+        };
+
+        VlessAdapter::validate(&node).unwrap();
     }
 
     #[test]

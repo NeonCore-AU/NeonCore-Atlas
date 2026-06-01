@@ -1,5 +1,5 @@
 use crate::{
-    adapter::OutboundAdapter,
+    adapter::{boxed_stream, BoxedProxyStream, OutboundAdapter},
     dns::DnsResolver,
     session::{KernelNode, TargetAddress},
 };
@@ -23,7 +23,7 @@ impl OutboundAdapter for HttpAdapter {
         node: &KernelNode,
         target: &TargetAddress,
         resolver: &DnsResolver,
-    ) -> anyhow::Result<TcpStream> {
+    ) -> anyhow::Result<BoxedProxyStream> {
         Self::validate(node)?;
         let proxy = TargetAddress {
             host: node.server.clone(),
@@ -55,7 +55,7 @@ impl OutboundAdapter for HttpAdapter {
         if !response.starts_with("HTTP/1.1 200") && !response.starts_with("HTTP/1.0 200") {
             anyhow::bail!("HTTP proxy CONNECT failed");
         }
-        Ok(stream)
+        Ok(boxed_stream(stream))
     }
 }
 
@@ -113,7 +113,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert!(stream.peer_addr().is_ok());
+        drop(stream);
         server.await.unwrap();
     }
 }

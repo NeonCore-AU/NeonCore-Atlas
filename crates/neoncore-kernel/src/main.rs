@@ -103,7 +103,7 @@ impl KernelRuntime {
         }
     }
 
-    async fn connect(&self, target: &TargetAddress) -> anyhow::Result<TcpStream> {
+    async fn connect(&self, target: &TargetAddress) -> anyhow::Result<adapter::BoxedProxyStream> {
         match self.router.decide(target)? {
             RouteDecision::Direct => {
                 let node = KernelNode {
@@ -319,7 +319,10 @@ fn parse_host_port(value: &str, default_port: u16) -> anyhow::Result<TargetAddre
     })
 }
 
-async fn proxy_bidirectional(mut left: TcpStream, mut right: TcpStream) -> anyhow::Result<()> {
+async fn proxy_bidirectional(
+    mut left: TcpStream,
+    mut right: adapter::BoxedProxyStream,
+) -> anyhow::Result<()> {
     let (from_left, from_right) = tokio::io::copy_bidirectional(&mut left, &mut right).await?;
     debug!(
         client_to_remote = from_left,

@@ -15,10 +15,14 @@ anyhow.workspace = true
 async-trait = "0.1"
 blake2 = "0.10"
 clap.workspace = true
+hysteria2 = "0.1.6"
+native-tls = "0.2"
 rand = "0.8"
 serde.workspace = true
 serde_json.workspace = true
+shadowsocks = { version = "1.22.0", default-features = false, features = ["aead-cipher", "aead-cipher-2022", "aead-cipher-2022-extra"] }
 thiserror.workspace = true
 tokio = { version = "1.48", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-native-tls = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -1,5 +1,5 @@
 use crate::{
-    adapter::OutboundAdapter,
+    adapter::{boxed_stream, BoxedProxyStream, OutboundAdapter},
     dns::DnsResolver,
     session::{KernelNode, TargetAddress},
 };
@@ -9,7 +9,6 @@ use blake2::{
 };
 use rand::RngCore;
 use std::net::{SocketAddr, UdpSocket};
-use tokio::net::TcpStream;
 
 pub struct Hy2Adapter;
 
@@ -21,6 +20,7 @@ pub struct Hy2Config {
     pub sni: String,
     pub insecure: bool,
     pub obfs: Option<Hy2Obfs>,
+    pub port_hopping_range: Option<(u16, u16)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,20 +50,29 @@ pub struct Hy2UdpMessage {
 impl OutboundAdapter for Hy2Adapter {
     fn validate(node: &KernelNode) -> anyhow::Result<()> {
         Hy2Config::from_node(node)?;
-        anyhow::bail!("Hysteria2 transport is not available yet");
+        Ok(())
     }
 
     async fn connect(
         node: &KernelNode,
         target: &TargetAddress,
         _resolver: &DnsResolver,
-    ) -> anyhow::Result<TcpStream> {
-        Self::validate(node)?;
-        let request = build_tcp_request(&target.to_string(), b"");
-        anyhow::bail!(
-            "Hysteria2 QUIC transport is not implemented yet; prepared TCP request frame with {} bytes",
-            request.len()
-        )
+    ) -> anyhow::Result<BoxedProxyStream> {
+        let config = Hy2Config::from_node(node)?;
+        let client = hysteria2::connect(&hysteria2::config::Config {
+            auth: config.auth,
+            server_addr: format!("{}:{}", config.server, config.server_port),
+            server_name: config.sni,
+            insecure: config.insecure,
+            port_hopping_range: config.port_hopping_range,
+        })
+        .await
+        .map_err(|err| anyhow::anyhow!("Hysteria2 connect failed: {err}"))?;
+        let stream = client
+            .tcp_connect(target.to_string())
+            .await
+            .map_err(|err| anyhow::anyhow!("Hysteria2 TCP connect failed: {err}"))?;
+        Ok(boxed_stream(stream))
     }
 }
 
@@ -98,10 +107,28 @@ impl Hy2Config {
                 .map(|value| matches!(value, "1" | "true" | "yes"))
                 .unwrap_or(false),
             obfs,
+            port_hopping_range: parse_port_hopping_range(node.parameter("mport"))?,
         })
     }
 }
 
+fn parse_port_hopping_range(value: Option<&str>) -> anyhow::Result<Option<(u16, u16)>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if let Some((start, end)) = value.split_once('-') {
+        let start = start.trim().parse()?;
+        let end = end.trim().parse()?;
+        if start > end {
+            anyhow::bail!("Hysteria2 port hopping range is invalid");
+        }
+        return Ok(Some((start, end)));
+    }
+    let port = value.trim().parse()?;
+    Ok(Some((port, port)))
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn build_tcp_request(address: &str, padding: &[u8]) -> Vec<u8> {
     let mut out = Vec::new();
     write_quic_varint(0x401, &mut out);
