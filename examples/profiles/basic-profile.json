@@ -3,5 +3,13 @@
   "name": "Basic Profile",
   "nodes": [],
   "subscriptions": [],
-  "routing_mode": "rule"
+  "routing_mode": "rule",
+  "routing_rules": [],
+  "dns": {
+    "mode": "system",
+    "servers": [],
+    "hosts": [],
+    "prefer_ipv6": false
+  },
+  "rewrites": []
 }

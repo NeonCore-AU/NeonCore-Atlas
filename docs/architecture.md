@@ -14,6 +14,8 @@ NeonCore Atlas separates portable network-client logic from platform-specific UI
 
 `atlas-api` defines JSON-serializable request and response types. It intentionally does not implement networking yet. The daemon, CLI, and GUIs can share a stable command vocabulary before IPC is chosen.
 
+The first command vocabulary covers status, connect, disconnect, profiles, nodes, subscriptions, routing rules, DNS updates, rewrite rules, latency testing, traffic statistics, diagnostics, and profile export.
+
 ## Desktop Daemon
 
 `atlas-daemon` is the future privileged or background service layer. IPC options under consideration are Unix domain sockets on macOS/Linux, named pipes on Windows, and optional localhost HTTP/gRPC for developer tooling.

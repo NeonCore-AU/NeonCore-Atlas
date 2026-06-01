@@ -6,6 +6,9 @@
 cargo fmt --all
 cargo test --workspace
 cargo run -p atlas-cli -- status
+cargo run -p atlas-cli -- rules
+cargo run -p atlas-cli -- dns
+cargo run -p atlas-cli -- latency
 cargo run -p atlas-daemon -- run
 ```
 

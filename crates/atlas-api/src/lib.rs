@@ -1,4 +1,7 @@
-use atlas_core::{Node, RoutingMode};
+use atlas_core::{
+    DiagnosticReport, DnsConfig, LatencyTestResult, Node, Profile, RewriteRule, RoutingMode,
+    RoutingRule, TrafficStats,
+};
 use atlas_engine::EngineStatus;
 use serde::{Deserialize, Serialize};
 
@@ -9,8 +12,17 @@ pub enum AtlasRequest {
     Connect { node: Option<String> },
     Disconnect,
     ListNodes,
+    ListProfiles,
+    ListRules,
+    ListRewrites,
     ImportSubscription { url: String },
+    UpdateSubscription { subscription_id: String },
     SetMode { mode: RoutingMode },
+    SetDns { config: DnsConfig },
+    TestLatency { node: Option<String> },
+    TrafficStats,
+    Diagnostics,
+    ExportProfile { profile_id: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,8 +32,17 @@ pub enum AtlasResponse {
     Connected { node: Option<String> },
     Disconnected,
     Nodes { nodes: Vec<Node> },
+    Profiles { profiles: Vec<Profile> },
+    Rules { rules: Vec<RoutingRule> },
+    Rewrites { rewrites: Vec<RewriteRule> },
     SubscriptionImported { subscription_id: String },
+    SubscriptionUpdated { subscription_id: String },
     ModeSet { mode: RoutingMode },
+    DnsUpdated,
+    Latency { results: Vec<LatencyTestResult> },
+    TrafficStats { stats: TrafficStats },
+    Diagnostics { report: DiagnosticReport },
+    ProfileExported { profile_id: String, content: String },
     Error { message_key: String },
 }
 

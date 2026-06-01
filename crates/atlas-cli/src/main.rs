@@ -17,11 +17,26 @@ enum Command {
     },
     Disconnect,
     Nodes,
+    Profiles,
     Import {
         url: String,
     },
+    Update {
+        subscription_id: String,
+    },
     Mode {
         mode: ModeArg,
+    },
+    Rules,
+    Rewrites,
+    Dns,
+    Latency {
+        node: Option<String>,
+    },
+    Stats,
+    Diagnostics,
+    Export {
+        profile_id: String,
     },
     Logs,
     Service {
@@ -75,7 +90,12 @@ fn main() -> anyhow::Result<()> {
         }
         Command::Disconnect => println!("{}", i18n.tr("cli-disconnected", &[])),
         Command::Nodes => println!("{}", i18n.tr("cli-no-nodes", &[])),
+        Command::Profiles => println!("{}", i18n.tr("cli-no-profiles", &[])),
         Command::Import { url } => println!("{}", i18n.tr("cli-imported", &[("url", url)])),
+        Command::Update { subscription_id } => println!(
+            "{}",
+            i18n.tr("cli-subscription-updated", &[("id", subscription_id)])
+        ),
         Command::Mode { mode } => {
             let mode: RoutingMode = mode.into();
             println!(
@@ -83,6 +103,19 @@ fn main() -> anyhow::Result<()> {
                 i18n.tr("cli-mode-set", &[("mode", format!("{:?}", mode))])
             );
         }
+        Command::Rules => println!("{}", i18n.tr("cli-rules-empty", &[])),
+        Command::Rewrites => println!("{}", i18n.tr("cli-rewrites-empty", &[])),
+        Command::Dns => println!("{}", i18n.tr("cli-dns-system", &[])),
+        Command::Latency { node } => {
+            let node = node.unwrap_or_else(|| i18n.tr("cli-latency-all-nodes", &[]));
+            println!("{}", i18n.tr("cli-latency-placeholder", &[("node", node)]));
+        }
+        Command::Stats => println!("{}", i18n.tr("cli-stats-zero", &[])),
+        Command::Diagnostics => println!("{}", i18n.tr("cli-diagnostics-placeholder", &[])),
+        Command::Export { profile_id } => println!(
+            "{}",
+            i18n.tr("cli-export-placeholder", &[("profile", profile_id)])
+        ),
         Command::Logs => println!("{}", i18n.tr("cli-logs-empty", &[])),
         Command::Service { command } => match command {
             ServiceCommand::Install => println!("{}", i18n.tr("cli-service-install", &[])),

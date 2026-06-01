@@ -22,6 +22,7 @@ flowchart TD
 - `atlas-daemon`: desktop service process scaffold for Windows, macOS, and Linux.
 - `atlas-cli`: cross-platform command-line client with localized output.
 - Native apps: SwiftUI for Apple platforms, Kotlin/Compose for Android, WinUI 3 for Windows, GTK4/libadwaita for Linux.
+- Capability scaffolds: subscriptions, profiles, routing rules, DNS settings, rewrite rules, latency tests, traffic statistics, diagnostics, and profile export.
 
 ## Platform Matrix
 
@@ -43,6 +44,8 @@ English (Australia) (`en-AU`) is the source language. Initial locales are `en-AU
 ```sh
 cargo test --workspace
 cargo run -p atlas-cli -- status
+cargo run -p atlas-cli -- diagnostics
+cargo run -p atlas-cli -- stats
 cargo run -p atlas-daemon -- health
 ```
 

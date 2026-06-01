@@ -6,6 +6,7 @@
 - Mock CLI and daemon workflows.
 - Native app skeletons with localization resources.
 - i18n scripts and CI placeholders.
+- Data models for subscriptions, DNS, routing rules, rewrites, stats, and diagnostics.
 
 ## v0.2
 
