@@ -79,7 +79,7 @@ impl I18n {
         }
     }
 
-    fn tr(&self, key: &str) -> &str {
+    fn tr<'a>(&self, key: &'a str) -> &'a str {
         self.messages.get(key).copied().unwrap_or(key)
     }
 }
