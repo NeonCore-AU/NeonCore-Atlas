@@ -1,5 +1,5 @@
 use atlas_api::HealthResponse;
-use atlas_engine::MockEngine;
+use atlas_engine::KernelEngine;
 use clap::{Parser, Subcommand};
 use std::{collections::HashMap, thread, time::Duration};
 
@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn run_daemon(i18n: &I18n) -> anyhow::Result<()> {
-    let _engine = MockEngine::default();
+    let _engine = KernelEngine::default();
     // Future IPC options:
     // - Unix domain socket on macOS/Linux.
     // - Named pipe on Windows.

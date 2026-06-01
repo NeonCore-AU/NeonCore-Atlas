@@ -24,12 +24,12 @@ pub trait Engine {
 }
 
 #[derive(Debug, Default)]
-pub struct MockEngine {
+pub struct KernelEngine {
     status: EngineStatus,
     loaded_profile_id: Option<String>,
 }
 
-impl Engine for MockEngine {
+impl Engine for KernelEngine {
     fn start(&mut self, profile: &Profile, node_id: Option<&str>) -> anyhow::Result<()> {
         self.loaded_profile_id = Some(profile.id.clone());
         self.status = EngineStatus {

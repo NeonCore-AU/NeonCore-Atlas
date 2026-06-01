@@ -10,7 +10,16 @@ cargo run -p atlas-cli -- rules
 cargo run -p atlas-cli -- dns
 cargo run -p atlas-cli -- latency
 cargo run -p atlas-daemon -- run
+cargo run -p neoncore-kernel -- check --session examples/kernel/direct-session.json
 ```
+
+## macOS App
+
+```sh
+scripts/dev/run-macos.sh
+```
+
+The macOS development launcher builds `neoncore-kernel`, builds the SwiftUI app, bundles the kernel binary into the app resources, and starts the app.
 
 ## i18n
 

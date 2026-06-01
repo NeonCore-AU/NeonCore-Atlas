@@ -16,7 +16,8 @@ let package = Package(
             name: "AtlasMacApp",
             path: "AtlasMacApp",
             resources: [
-                .process("Localizable.xcstrings")
+                .process("Localizable.xcstrings"),
+                .process("Fonts")
             ]
         )
     ]

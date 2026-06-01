@@ -1,7 +1,14 @@
+import Foundation
+import Network
+import CoreText
 import SwiftUI
 
 @main
 struct AtlasMacApp: App {
+    init() {
+        AtlasFont.register()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -54,28 +61,15 @@ private final class AtlasStore: ObservableObject {
     @Published var directBytesIn = 0
     @Published var directBytesOut = 0
     @Published var lastLatencyRun = "--"
+    @Published var localProxyPort = 7890
     @Published var logs: [AtlasLog] = [
         .init(level: "info", messageKey: "log.app_ready"),
-        .init(level: "info", messageKey: "log.daemon_mock_ready"),
     ]
-    @Published var nodes: [AtlasNode] = [
-        .init(name: "Sydney Edge", region: "AU", endpoint: "syd-atlas-01.local", latency: nil, tags: ["TLS", "UDP"]),
-        .init(name: "Tokyo Relay", region: "JP", endpoint: "tyo-atlas-01.local", latency: nil, tags: ["TLS"]),
-        .init(name: "Singapore Core", region: "SG", endpoint: "sin-atlas-01.local", latency: nil, tags: ["UDP"]),
-    ]
-    @Published var profiles: [AtlasProfile] = [
-        .init(name: "Daily Driver", detail: "3 nodes · rule routing"),
-        .init(name: "Diagnostics Lab", detail: "local mock profile"),
-    ]
-    @Published var rules: [AtlasRule] = [
-        .init(name: "Local network", matcher: "192.168.0.0/16", action: "Direct", enabled: true),
-        .init(name: "Media profile", matcher: "domain keyword", action: "Proxy", enabled: true),
-        .init(name: "Blocked endpoint", matcher: "example.invalid", action: "Reject", enabled: false),
-    ]
-    @Published var rewrites: [RewriteItem] = [
-        .init(name: "API version header", pattern: "^/api/v1", enabled: true),
-        .init(name: "Debug marker", pattern: "X-Atlas-Debug", enabled: false),
-    ]
+    @Published var nodes: [AtlasNode] = []
+    @Published var profiles: [AtlasProfile] = []
+    @Published var rules: [AtlasRule] = []
+
+    private let engine = NeonCoreKernel()
 
     var activeNode: AtlasNode? {
         nodes.first { $0.id == activeNodeID } ?? nodes.first
@@ -87,61 +81,54 @@ private final class AtlasStore: ObservableObject {
 
     func toggleConnection() {
         if status == .connected {
-            status = .disconnected
-            activeNodeID = nil
-            log("log.disconnected")
+            disconnect()
         } else {
-            status = .connected
-            activeNodeID = nodes.first?.id
-            proxyBytesIn += 12_800_000
-            proxyBytesOut += 3_600_000
-            directBytesIn += 1_900_000
-            directBytesOut += 760_000
-            log("log.connected")
+            connect()
         }
     }
 
     func selectNode(_ node: AtlasNode) {
         activeNodeID = node.id
-        status = .connected
-        log("log.node_selected")
+        connect()
     }
 
-    func importSubscription() {
+    func importSubscription() async {
         let value = subscriptionURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard value.hasPrefix("https://") || value.hasPrefix("http://") else {
             log("subscription.import.error_invalid_url", level: "warn")
             return
         }
-        profiles.append(.init(name: "Imported Profile \(profiles.count + 1)", detail: "subscription · merge strategy"))
-        subscriptionURL = ""
-        log("subscription.import.success")
+        do {
+            let importedNodes = try await SubscriptionParser.fetch(urlString: value)
+            nodes = importedNodes
+            activeNodeID = importedNodes.first?.id
+            profiles = [.init(name: "Imported Subscription", detail: "\(importedNodes.count) nodes")]
+            log("subscription.import.success")
+        } catch {
+            log("subscription.import.error_failed", level: "warn")
+        }
     }
 
-    func addManualNode() {
-        nodes.append(.init(name: "Manual Node \(nodes.count + 1)", region: "Custom", endpoint: "manual-\(nodes.count + 1).local", latency: nil, tags: ["TLS"]))
-        log("log.node_added")
-    }
-
-    func testLatency() {
+    func testLatency() async {
         for index in nodes.indices {
-            nodes[index].latency = 34 + index * 41
+            let start = Date()
+            let reachable = await TCPProbe.check(host: nodes[index].host, port: nodes[index].port, timeout: 3)
+            nodes[index].latency = reachable ? max(1, Int(Date().timeIntervalSince(start) * 1000)) : nil
         }
         lastLatencyRun = Date.now.formatted(date: .omitted, time: .shortened)
         log("log.latency_completed")
     }
 
     func addRule() {
-        rules.append(.init(name: "Rule \(rules.count + 1)", matcher: "domain suffix", action: "Proxy", enabled: true))
-        log("log.rule_added")
+        log("log.rules_runtime_managed", level: "warn")
     }
 
-    func addRewrite() {
-        rewrites.append(.init(name: "Rewrite \(rewrites.count + 1)", pattern: "^/mock", enabled: true))
-        log("log.rewrite_added")
-    }
-
-    func runDiagnostics() {
+    func runDiagnostics() async {
+        log(engine.isAvailable ? "log.engine_available" : "log.engine_missing", level: engine.isAvailable ? "info" : "warn")
+        if let node = activeNode {
+            let reachable = await TCPProbe.check(host: node.host, port: node.port, timeout: 3)
+            log(reachable ? "log.node_reachable" : "log.node_unreachable", level: reachable ? "info" : "warn")
+        }
         log("log.diagnostics_completed")
     }
 
@@ -152,15 +139,47 @@ private final class AtlasStore: ObservableObject {
     func log(_ messageKey: String, level: String = "info") {
         logs.insert(.init(level: level, messageKey: messageKey), at: 0)
     }
+
+    private func connect() {
+        guard let node = activeNode else {
+            log("nodes.empty.title", level: "warn")
+            return
+        }
+        do {
+            try engine.start(node: node, port: localProxyPort)
+            try SystemProxy.enable(port: localProxyPort)
+            status = .connected
+            activeNodeID = node.id
+            log("log.connected")
+        } catch {
+            status = .disconnected
+            log("log.connect_failed", level: "warn")
+        }
+    }
+
+    private func disconnect() {
+        engine.stop()
+        try? SystemProxy.disable()
+        status = .disconnected
+        log("log.disconnected")
+    }
 }
 
 private struct AtlasNode: Identifiable {
     let id = UUID()
     var name: String
     var region: String
-    var endpoint: String
+    var host: String
+    var port: Int
+    var userID: String
+    var protocolName: String
+    var query: [String: String]
     var latency: Int?
     var tags: [String]
+
+    var endpoint: String {
+        "\(host):\(port)"
+    }
 }
 
 private struct AtlasProfile: Identifiable {
@@ -177,18 +196,237 @@ private struct AtlasRule: Identifiable {
     var enabled: Bool
 }
 
-private struct RewriteItem: Identifiable {
-    let id = UUID()
-    var name: String
-    var pattern: String
-    var enabled: Bool
-}
-
 private struct AtlasLog: Identifiable {
     let id = UUID()
     let time = Date.now
     var level: String
     var messageKey: String
+}
+
+private enum SubscriptionParser {
+    static func fetch(urlString: String) async throws -> [AtlasNode] {
+        guard let url = URL(string: urlString) else { throw AtlasError.invalidURL }
+        var request = URLRequest(url: url)
+        request.setValue("NeonCoreAtlas/0.1 macOS", forHTTPHeaderField: "User-Agent")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw AtlasError.subscriptionFailed }
+        let body = String(decoding: data, as: UTF8.self)
+        let decoded = decodeSubscriptionBody(body)
+        return decoded
+            .split(whereSeparator: \.isNewline)
+            .compactMap { parseNode(String($0)) }
+            .filter { $0.host != "127.0.0.1" && $0.port > 1 }
+    }
+
+    private static func decodeSubscriptionBody(_ body: String) -> String {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let padded = trimmed + String(repeating: "=", count: (4 - trimmed.count % 4) % 4)
+        if let data = Data(base64Encoded: padded),
+           let decoded = String(data: data, encoding: .utf8),
+           decoded.contains("://")
+        {
+            return decoded
+        }
+        return body
+    }
+
+    private static func parseNode(_ line: String) -> AtlasNode? {
+        guard let components = URLComponents(string: line),
+              let scheme = components.scheme?.lowercased(),
+              let host = components.host,
+              let port = components.port
+        else { return nil }
+
+        let userID = components.user ?? ""
+        let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
+            item.value.map { (item.name, $0) }
+        })
+        let name = components.percentEncodedFragment?.removingPercentEncoding ?? "\(scheme.uppercased()) \(host)"
+        let tags = tagsFor(scheme: scheme, query: query)
+        return AtlasNode(
+            name: name,
+            region: region(from: name),
+            host: host,
+            port: port,
+            userID: userID,
+            protocolName: scheme,
+            query: query,
+            latency: nil,
+            tags: tags
+        )
+    }
+
+    private static func tagsFor(scheme: String, query: [String: String]) -> [String] {
+        var tags = [scheme.uppercased()]
+        if let security = query["security"], security != "none" { tags.append(security.uppercased()) }
+        if query["flow"] != nil { tags.append("VISION") }
+        return tags
+    }
+
+    private static func region(from name: String) -> String {
+        if name.contains("澳大利亚") { return "AU" }
+        if name.contains("美国") { return "US" }
+        if name.contains("日本") { return "JP" }
+        if name.contains("香港") { return "HK" }
+        if name.contains("新加坡") { return "SG" }
+        return "GLOBAL"
+    }
+}
+
+private final class NeonCoreKernel {
+    private var process: Process?
+    private var configURL: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("neoncore-kernel-session.json")
+    }
+
+    var isAvailable: Bool {
+        binaryURL != nil
+    }
+
+    func start(node: AtlasNode, port: Int) throws {
+        stop()
+        guard let binaryURL else { throw AtlasError.engineMissing }
+        let session = try makeSession(node: node, port: port)
+        try session.write(to: configURL)
+        let process = Process()
+        process.executableURL = binaryURL
+        process.arguments = ["run", "--session", configURL.path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        self.process = process
+    }
+
+    func stop() {
+        process?.terminate()
+        process = nil
+    }
+
+    private var binaryURL: URL? {
+        let bundleURL = Bundle.main.resourceURL?.appendingPathComponent("neoncore-kernel")
+        if let bundleURL, FileManager.default.isExecutableFile(atPath: bundleURL.path) {
+            return bundleURL
+        }
+        let local = URL(fileURLWithPath: "/Users/neoncore/NeonCore Dev/neoncore-atlas/target/debug/neoncore-kernel")
+        if FileManager.default.isExecutableFile(atPath: local.path) {
+            return local
+        }
+        return nil
+    }
+
+    private func makeSession(node: AtlasNode, port: Int) throws -> Data {
+        let session: [String: Any] = [
+            "listen_host": "127.0.0.1",
+            "listen_port": port,
+            "selected_node": makeKernelNode(node: node)
+        ]
+        return try JSONSerialization.data(withJSONObject: session, options: [.prettyPrinted, .sortedKeys])
+    }
+
+    private func makeKernelNode(node: AtlasNode) -> [String: Any] {
+        [
+            "protocol": node.protocolName,
+            "server": node.host,
+            "server_port": node.port,
+            "user_id": node.userID,
+            "parameters": node.query
+        ]
+    }
+}
+
+private enum SystemProxy {
+    static func enable(port: Int) throws {
+        for service in try activeServices() {
+            try run("/usr/sbin/networksetup", ["-setsocksfirewallproxy", service, "127.0.0.1", "\(port)"])
+            try run("/usr/sbin/networksetup", ["-setsocksfirewallproxystate", service, "on"])
+            try run("/usr/sbin/networksetup", ["-setwebproxy", service, "127.0.0.1", "\(port)"])
+            try run("/usr/sbin/networksetup", ["-setwebproxystate", service, "on"])
+            try run("/usr/sbin/networksetup", ["-setsecurewebproxy", service, "127.0.0.1", "\(port)"])
+            try run("/usr/sbin/networksetup", ["-setsecurewebproxystate", service, "on"])
+        }
+    }
+
+    static func disable() throws {
+        for service in try activeServices() {
+            try run("/usr/sbin/networksetup", ["-setsocksfirewallproxystate", service, "off"])
+            try run("/usr/sbin/networksetup", ["-setwebproxystate", service, "off"])
+            try run("/usr/sbin/networksetup", ["-setsecurewebproxystate", service, "off"])
+        }
+    }
+
+    private static func activeServices() throws -> [String] {
+        let output = try capture("/usr/sbin/networksetup", ["-listallnetworkservices"])
+        let services = output
+            .split(whereSeparator: \.isNewline)
+            .map(String.init)
+            .filter { !$0.hasPrefix("An asterisk") && !$0.hasPrefix("*") }
+        return services.isEmpty ? ["Wi-Fi"] : services
+    }
+
+    private static func run(_ executable: String, _ arguments: [String]) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        try process.run()
+        process.waitUntilExit()
+        if process.terminationStatus != 0 { throw AtlasError.systemProxyFailed }
+    }
+
+    private static func capture(_ executable: String, _ arguments: [String]) throws -> String {
+        let pipe = Pipe()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.standardOutput = pipe
+        try process.run()
+        process.waitUntilExit()
+        return String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    }
+}
+
+private enum TCPProbe {
+    static func check(host: String, port: Int, timeout: TimeInterval) async -> Bool {
+        await withCheckedContinuation { continuation in
+            let connection = NWConnection(host: NWEndpoint.Host(host), port: NWEndpoint.Port(integerLiteral: NWEndpoint.Port.IntegerLiteralType(port)), using: .tcp)
+            let state = ProbeState()
+            let complete: @Sendable (Bool) -> Void = { value in
+                guard state.markFinished() else { return }
+                connection.cancel()
+                continuation.resume(returning: value)
+            }
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready: complete(true)
+                case .failed, .cancelled: complete(false)
+                default: break
+                }
+            }
+            connection.start(queue: .global())
+            DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+                complete(false)
+            }
+        }
+    }
+}
+
+private final class ProbeState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var finished = false
+
+    func markFinished() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !finished else { return false }
+        finished = true
+        return true
+    }
+}
+
+private enum AtlasError: Error {
+    case invalidURL
+    case subscriptionFailed
+    case engineMissing
+    case systemProxyFailed
 }
 
 struct ContentView: View {
@@ -213,10 +451,10 @@ private struct Sidebar: View {
         VStack(spacing: 18) {
             VStack(spacing: 2) {
                 Text("app.name".localized)
-                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .font(.custom(AtlasTheme.fontName, size: 24).weight(.bold))
                     .foregroundStyle(.white)
                 Text("app.tagline".localized)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.semibold))
                     .foregroundStyle(AtlasTheme.muted)
                     .textCase(.uppercase)
             }
@@ -234,7 +472,7 @@ private struct Sidebar: View {
                             Image(systemName: page.symbol)
                                 .frame(width: 20)
                             Text(page.titleKey.localized)
-                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .font(.custom(AtlasTheme.fontName, size: 13).weight(.bold))
                             Spacer()
                         }
                         .textCase(.uppercase)
@@ -249,7 +487,7 @@ private struct Sidebar: View {
             VStack(alignment: .leading, spacing: 10) {
                 StatusPill(key: store.statusKey, tone: store.status == .connected ? .good : .muted)
                 Text("settings.language".localized)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.semibold))
                     .foregroundStyle(AtlasTheme.muted)
                 Text("en-AU · zh-Hans · en-XA")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
@@ -297,11 +535,11 @@ private struct Topbar: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("topbar.control_plane".localized)
-                    .font(.system(size: 11, weight: .black, design: .rounded))
+                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.bold))
                     .foregroundStyle(AtlasTheme.cyan)
                     .textCase(.uppercase)
                 Text(store.selectedPage.titleKey.localized)
-                    .font(.system(size: 44, weight: .black, design: .rounded))
+                    .font(.custom(AtlasTheme.fontName, size: 44).weight(.bold))
                     .textCase(.uppercase)
             }
             Spacer()
@@ -334,7 +572,7 @@ private struct DashboardPage: View {
                 MetricCard(titleKey: "metric.nodes", value: "\(store.nodes.count)", footKey: "metric.ready")
                 MetricCard(titleKey: "metric.profiles", value: "\(store.profiles.count)", footKey: "metric.loaded")
                 MetricCard(titleKey: "metric.latency", value: store.nodes.compactMap(\.latency).first.map { "\($0) ms" } ?? "--", footKey: "metric.latest")
-                MetricCard(titleKey: "metric.traffic", value: ByteCountFormatter.string(fromByteCount: Int64(store.proxyBytesIn + store.proxyBytesOut), countStyle: .binary), footKey: "metric.mock_runtime")
+                MetricCard(titleKey: "metric.traffic", value: ByteCountFormatter.string(fromByteCount: Int64(store.proxyBytesIn + store.proxyBytesOut), countStyle: .binary), footKey: "metric.system_proxy")
             }
             HStack(alignment: .top, spacing: 18) {
                 NodesSummary(store: store)
@@ -352,11 +590,11 @@ private struct HeroPanel: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("dashboard.hero.title".localized)
-                        .font(.system(size: 58, weight: .black, design: .rounded))
+                        .font(.custom(AtlasTheme.fontName, size: 58).weight(.bold))
                         .lineLimit(2)
                         .textCase(.uppercase)
                     Text("dashboard.hero.subtitle".localized)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(.custom(AtlasTheme.fontName, size: 16).weight(.semibold))
                         .foregroundStyle(AtlasTheme.muted)
                 }
                 Spacer()
@@ -367,7 +605,7 @@ private struct HeroPanel: View {
                 TextField("subscription.import.url_placeholder".localized, text: $store.subscriptionURL)
                     .textFieldStyle(NeonTextFieldStyle())
                 Button {
-                    store.importSubscription()
+                    Task { await store.importSubscription() }
                 } label: {
                     Label("profiles.action.import_subscription".localized, systemImage: "square.and.arrow.down")
                 }
@@ -398,9 +636,9 @@ private struct TrafficDial: View {
                 .shadow(color: AtlasTheme.cyan.opacity(0.55), radius: 14)
             VStack(spacing: 2) {
                 Text(store.status == .connected ? "72%" : "18%")
-                    .font(.system(size: 34, weight: .black, design: .rounded))
+                    .font(.custom(AtlasTheme.fontName, size: 34).weight(.bold))
                 Text("metric.session".localized)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.semibold))
                     .foregroundStyle(AtlasTheme.muted)
                     .textCase(.uppercase)
             }
@@ -415,7 +653,7 @@ private struct NodesSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(titleKey: "nav.nodes", actionKey: "nodes.action.test_latency", systemImage: "timer") {
-                store.testLatency()
+                Task { await store.testLatency() }
             }
             ForEach(store.nodes.prefix(3)) { node in
                 DataRow(primary: node.name, secondary: node.endpoint, trailing: node.latency.map { "\($0) ms" } ?? "nodes.latency.unknown".localized, tone: node.id == store.activeNodeID ? .good : .muted)
@@ -452,12 +690,12 @@ private struct NodesPage: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            PageActions(titleKey: "nodes.empty.title", primaryKey: "nodes.action.add_manual", primaryIcon: "plus") {
-                store.addManualNode()
+            PageActions(titleKey: "nav.nodes", primaryKey: "profiles.action.import_subscription", primaryIcon: "square.and.arrow.down") {
+                store.selectedPage = .profiles
             } secondaryKey: {
                 "nodes.action.test_latency"
             } secondaryAction: {
-                store.testLatency()
+                Task { await store.testLatency() }
             }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
                 ForEach(store.nodes) { node in
@@ -465,7 +703,7 @@ private struct NodesPage: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(node.name)
-                                    .font(.system(size: 20, weight: .black, design: .rounded))
+                                    .font(.custom(AtlasTheme.fontName, size: 20).weight(.bold))
                                 Text(node.endpoint)
                                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(AtlasTheme.muted)
@@ -476,7 +714,7 @@ private struct NodesPage: View {
                         HStack {
                             ForEach(node.tags, id: \.self) { tag in
                                 Text(tag)
-                                    .font(.system(size: 11, weight: .black, design: .rounded))
+                                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.bold))
                                     .padding(.horizontal, 9)
                                     .frame(height: 26)
                                     .overlay(RoundedRectangle(cornerRadius: 0).stroke(AtlasTheme.lineBright))
@@ -492,6 +730,10 @@ private struct NodesPage: View {
                     .neonPanel(active: node.id == store.activeNodeID)
                 }
             }
+            if store.nodes.isEmpty {
+                EmptyState(titleKey: "nodes.empty.title", descriptionKey: "nodes.empty.description")
+                    .neonPanel()
+            }
         }
     }
 }
@@ -505,7 +747,7 @@ private struct ProfilesPage: View {
                 TextField("subscription.import.url_placeholder".localized, text: $store.subscriptionURL)
                     .textFieldStyle(NeonTextFieldStyle())
                 Button("profiles.action.import_subscription".localized) {
-                    store.importSubscription()
+                    Task { await store.importSubscription() }
                 }
                 .buttonStyle(NeonPrimaryButtonStyle(active: false))
             }
@@ -529,26 +771,20 @@ private struct RoutingPage: View {
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("routing.mode.rule".localized)
-                        .font(.system(size: 20, weight: .black, design: .rounded))
+                        .font(.custom(AtlasTheme.fontName, size: 20).weight(.bold))
                     Picker("", selection: $store.routingMode) {
                         Text("routing.mode.global".localized).tag("Global")
                         Text("routing.mode.rule".localized).tag("Rule")
                         Text("routing.mode.direct".localized).tag("Direct")
                     }
                     .pickerStyle(.segmented)
-                    Button {
-                        store.addRule()
-                    } label: {
-                        Label("routing.action.add_rule".localized, systemImage: "plus")
-                    }
-                    .buttonStyle(NeonSecondaryButtonStyle())
                 }
                 .padding(18)
                 .neonPanel()
 
                 VStack(alignment: .leading, spacing: 14) {
                     Text("dns.title".localized)
-                        .font(.system(size: 20, weight: .black, design: .rounded))
+                        .font(.custom(AtlasTheme.fontName, size: 20).weight(.bold))
                     Picker("", selection: $store.dnsMode) {
                         Text("dns.mode.system".localized).tag("System")
                         Text("dns.mode.remote".localized).tag("Remote")
@@ -570,21 +806,12 @@ private struct RoutingPage: View {
                     .padding(14)
                     .background(AtlasTheme.panel2)
                 }
-            }
-            .neonPanel()
-
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(titleKey: "rewrite.title", actionKey: "rewrite.action.add", systemImage: "plus") {
-                    store.addRewrite()
-                }
-                ForEach($store.rewrites) { $rewrite in
-                    Toggle(isOn: $rewrite.enabled) {
-                        DataRow(primary: rewrite.name, secondary: rewrite.pattern, trailing: rewrite.enabled ? "settings.enabled".localized : "settings.disabled".localized, tone: rewrite.enabled ? .good : .muted)
-                    }
-                    .toggleStyle(.switch)
+                if store.rules.isEmpty {
+                    EmptyState(titleKey: "routing.rules.empty.title", descriptionKey: "routing.rules.empty.description")
+                        .padding(14)
+                        .background(AtlasTheme.panel2)
                 }
             }
-            .padding(18)
             .neonPanel()
         }
     }
@@ -617,14 +844,14 @@ private struct DiagnosticsPage: View {
     var body: some View {
         VStack(spacing: 18) {
             PageActions(titleKey: "settings.advanced", primaryKey: "diagnostics.action.run", primaryIcon: "waveform.path.ecg") {
-                store.runDiagnostics()
+                Task { await store.runDiagnostics() }
             } secondaryKey: {
                 "nodes.action.test_latency"
             } secondaryAction: {
-                store.testLatency()
+                Task { await store.testLatency() }
             }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                MetricCard(titleKey: "diagnostics.daemon", value: "Mock", footKey: "metric.ready")
+                MetricCard(titleKey: "diagnostics.daemon", value: store.status == .connected ? "Running" : "Stopped", footKey: "metric.ready")
                 MetricCard(titleKey: "diagnostics.profile", value: "\(store.profiles.count)", footKey: "metric.loaded")
                 MetricCard(titleKey: "diagnostics.latency", value: store.lastLatencyRun, footKey: "metric.latest")
             }
@@ -639,7 +866,7 @@ private struct SettingsPage: View {
         VStack(spacing: 18) {
             VStack(alignment: .leading, spacing: 14) {
                 Text("settings.title".localized)
-                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .font(.custom(AtlasTheme.fontName, size: 24).weight(.bold))
                 Toggle("settings.launch_at_login".localized, isOn: .constant(false))
                 Toggle("settings.show_advanced".localized, isOn: .constant(true))
                 Toggle("settings.debug_logs".localized, isOn: .constant(true))
@@ -661,7 +888,7 @@ private struct PageActions: View {
     var body: some View {
         HStack {
             Text(titleKey.localized)
-                .font(.system(size: 26, weight: .black, design: .rounded))
+                .font(.custom(AtlasTheme.fontName, size: 26).weight(.bold))
                 .textCase(.uppercase)
             Spacer()
             Button {
@@ -691,7 +918,7 @@ private struct SectionHeader: View {
     var body: some View {
         HStack {
             Text(titleKey.localized)
-                .font(.system(size: 22, weight: .black, design: .rounded))
+                .font(.custom(AtlasTheme.fontName, size: 22).weight(.bold))
                 .textCase(.uppercase)
             Spacer()
             Button {
@@ -712,13 +939,13 @@ private struct MetricCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(titleKey.localized)
-                .font(.system(size: 12, weight: .black, design: .rounded))
+                .font(.custom(AtlasTheme.fontName, size: 12).weight(.bold))
                 .foregroundStyle(AtlasTheme.muted)
                 .textCase(.uppercase)
             Text(value)
-                .font(.system(size: 30, weight: .black, design: .rounded))
+                .font(.custom(AtlasTheme.fontName, size: 30).weight(.bold))
             Text(footKey.localized)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(.custom(AtlasTheme.fontName, size: 12).weight(.semibold))
                 .foregroundStyle(AtlasTheme.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -737,7 +964,7 @@ private struct DataRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(primary)
-                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .font(.custom(AtlasTheme.fontName, size: 15).weight(.bold))
                 Text(secondary)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(AtlasTheme.muted)
@@ -755,7 +982,7 @@ private struct EmptyState: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(titleKey.localized)
-                .font(.system(size: 20, weight: .black, design: .rounded))
+                .font(.custom(AtlasTheme.fontName, size: 20).weight(.bold))
             Text(descriptionKey.localized)
                 .foregroundStyle(AtlasTheme.muted)
         }
@@ -776,7 +1003,7 @@ private struct StatusPill: View {
 
     var body: some View {
         Text(key.localized)
-            .font(.system(size: 11, weight: .black, design: .rounded))
+            .font(.custom(AtlasTheme.fontName, size: 11).weight(.bold))
             .padding(.horizontal, 10)
             .frame(minHeight: 28)
             .foregroundStyle(color)
@@ -827,6 +1054,7 @@ private struct GridPattern: Shape {
 }
 
 private enum AtlasTheme {
+    static let fontName = "Rajdhani"
     static let panel = Color(red: 0.02, green: 0.027, blue: 0.05)
     static let panel2 = Color(red: 0.031, green: 0.051, blue: 0.086)
     static let line = Color(red: 0.13, green: 0.145, blue: 0.19)
@@ -836,6 +1064,17 @@ private enum AtlasTheme {
     static let blue = Color(red: 0.255, green: 0.412, blue: 1)
     static let violet = Color(red: 0.722, green: 0.2, blue: 1)
     static let warn = Color(red: 1, green: 0.737, blue: 0.259)
+}
+
+private enum AtlasFont {
+    static func register() {
+        for file in ["rajdhani-400", "rajdhani-600", "rajdhani-700"] {
+            guard let url = Bundle.module.url(forResource: file, withExtension: "woff2", subdirectory: "Fonts") else {
+                continue
+            }
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        }
+    }
 }
 
 private extension View {
@@ -872,7 +1111,7 @@ private struct NeonPrimaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .black, design: .rounded))
+            .font(.custom(AtlasTheme.fontName, size: 13).weight(.bold))
             .textCase(.uppercase)
             .tracking(0.7)
             .padding(.horizontal, 16)
@@ -887,7 +1126,7 @@ private struct NeonPrimaryButtonStyle: ButtonStyle {
 private struct NeonSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .black, design: .rounded))
+            .font(.custom(AtlasTheme.fontName, size: 12).weight(.bold))
             .textCase(.uppercase)
             .tracking(0.6)
             .padding(.horizontal, 14)
@@ -902,7 +1141,7 @@ private struct NeonTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .textFieldStyle(.plain)
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .font(.custom(AtlasTheme.fontName, size: 14).weight(.semibold))
             .padding(.horizontal, 12)
             .frame(height: 42)
             .background(AtlasTheme.panel2)

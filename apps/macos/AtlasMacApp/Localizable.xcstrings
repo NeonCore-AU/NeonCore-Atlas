@@ -283,19 +283,19 @@
         "en-AU": {
           "stringUnit": {
             "state": "translated",
-            "value": "Import a subscription or add a server manually to get started."
+            "value": "Import a subscription to load available nodes."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "导入订阅或手动添加服务器即可开始。"
+            "value": "导入订阅以加载可用节点。"
           }
         },
         "en-XA": {
           "stringUnit": {
             "state": "translated",
-            "value": "[Import a subscription or add a server manually to get started.~~~~]"
+            "value": "[Îɱþõŕţ á šûβšçŕîþţîõñ ţõ ļõáð áṽáîļáβļé ñõðéš.~~~~]"
           }
         }
       }
@@ -490,19 +490,19 @@
         "en-AU": {
           "stringUnit": {
             "state": "translated",
-            "value": "Manage local profiles, nodes, routing, DNS, diagnostics, and mock connection state."
+            "value": "Import a subscription, test node reachability, start the local proxy engine, and manage system proxy state."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "管理本地配置、节点、路由、DNS、诊断和模拟连接状态。"
+            "value": "导入订阅、测试节点连通性、启动本地代理引擎并管理系统代理状态。"
           }
         },
         "en-XA": {
           "stringUnit": {
             "state": "translated",
-            "value": "[Ṁáñáĝé ļõçáļ þŕõƒîļéš, ñõðéš, ŕõûţîñĝ, ÐÑŠ, ðîáĝñõšţîçš, áñð ɱõçķ çõññéçţîõñ šţáţé.~~~~]"
+            "value": "[Îɱþõŕţ á šûβšçŕîþţîõñ, ţéšţ ñõðé ŕéáçháβîļîţý, šţáŕţ ţhé ļõçáļ þŕõҳý éñĝîñé, áñð ɱáñáĝé šýšţéɱ þŕõҳý šţáţé.~~~~]"
           }
         }
       }
@@ -668,29 +668,6 @@
         }
       }
     },
-    "metric.mock_runtime": {
-      "comment": "Semantic Atlas localization key.",
-      "localizations": {
-        "en-AU": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mock runtime"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "模拟运行时"
-          }
-        },
-        "en-XA": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[Ṁõçķ ŕûñţîɱé~~~~]"
-          }
-        }
-      }
-    },
     "metric.session": {
       "comment": "Semantic Atlas localization key.",
       "localizations": {
@@ -720,19 +697,19 @@
         "en-AU": {
           "stringUnit": {
             "state": "translated",
-            "value": "Events from local mock workflows appear here."
+            "value": "Engine, subscription, and network events appear here."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "本地模拟工作流事件会显示在这里。"
+            "value": "引擎、订阅和网络事件会显示在这里。"
           }
         },
         "en-XA": {
           "stringUnit": {
             "state": "translated",
-            "value": "[Éṽéñţš ƒŕõɱ ļõçáļ ɱõçķ ŵõŕķƒļõŵš áþþéáŕ héŕé.~~~~]"
+            "value": "[Éñĝîñé, šûβšçŕîþţîõñ, áñð ñéţŵõŕķ éṽéñţš áþþéáŕ héŕé.~~~~]"
           }
         }
       }
@@ -894,52 +871,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "[Þŕéƒéŕ ÎÞṽ6~~~~]"
-          }
-        }
-      }
-    },
-    "rewrite.title": {
-      "comment": "Semantic Atlas localization key.",
-      "localizations": {
-        "en-AU": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rewrite rules"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重写规则"
-          }
-        },
-        "en-XA": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[Ŕéŵŕîţé ŕûļéš~~~~]"
-          }
-        }
-      }
-    },
-    "rewrite.action.add": {
-      "comment": "Semantic Atlas localization key.",
-      "localizations": {
-        "en-AU": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add rewrite"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加重写"
-          }
-        },
-        "en-XA": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[Áðð ŕéŵŕîţé~~~~]"
           }
         }
       }
@@ -1174,48 +1105,25 @@
         }
       }
     },
-    "log.daemon_mock_ready": {
-      "comment": "Semantic Atlas localization key.",
-      "localizations": {
-        "en-AU": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mock daemon client ready"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "模拟守护进程客户端已就绪"
-          }
-        },
-        "en-XA": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[Ṁõçķ ðáéɱõñ çļîéñţ ŕéáðý~~~~]"
-          }
-        }
-      }
-    },
     "log.disconnected": {
       "comment": "Semantic Atlas localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disconnected from mock session"
+            "value": "Disconnected from proxy engine"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已断开模拟会话"
+            "value": "已断开代理引擎"
           }
         },
         "en-XA": {
           "stringUnit": {
             "state": "translated",
-            "value": "[Ðîšçõññéçţéð ƒŕõɱ ɱõçķ šéššîõñ~~~~]"
+            "value": "[Ðîšçõññéçţéð ƒŕõɱ þŕõҳý éñĝîñé~~~~]"
           }
         }
       }
@@ -1226,19 +1134,19 @@
         "en-AU": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connected to mock session"
+            "value": "Proxy engine connected"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已连接到模拟会话"
+            "value": "代理引擎已连接"
           }
         },
         "en-XA": {
           "stringUnit": {
             "state": "translated",
-            "value": "[Çõññéçţéð ţõ ɱõçķ šéššîõñ~~~~]"
+            "value": "[Þŕõҳý éñĝîñé çõññéçţéð~~~~]"
           }
         }
       }
@@ -1335,29 +1243,6 @@
         }
       }
     },
-    "log.rewrite_added": {
-      "comment": "Semantic Atlas localization key.",
-      "localizations": {
-        "en-AU": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rewrite rule added"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已添加重写规则"
-          }
-        },
-        "en-XA": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[Ŕéŵŕîţé ŕûļé áððéð~~~~]"
-          }
-        }
-      }
-    },
     "log.diagnostics_completed": {
       "comment": "Semantic Atlas localization key.",
       "localizations": {
@@ -1377,6 +1262,190 @@
           "stringUnit": {
             "state": "translated",
             "value": "[Ðîáĝñõšţîçš çõɱþļéţéð~~~~]"
+          }
+        }
+      }
+    },
+    "metric.system_proxy": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System proxy"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "系统代理"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Šýšţéɱ þŕõҳý~~~~]"
+          }
+        }
+      }
+    },
+    "log.connect_failed": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not start proxy engine"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法启动代理引擎"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Çõûļð ñõţ šţáŕţ þŕõҳý éñĝîñé~~~~]"
+          }
+        }
+      }
+    },
+    "log.engine_available": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proxy engine available"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "代理引擎可用"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Þŕõҳý éñĝîñé áṽáîļáβļé~~~~]"
+          }
+        }
+      }
+    },
+    "log.engine_missing": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proxy engine is missing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "缺少代理引擎"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Þŕõҳý éñĝîñé îš ɱîššîñĝ~~~~]"
+          }
+        }
+      }
+    },
+    "log.node_reachable": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active node is reachable"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前节点可连接"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Áçţîṽé ñõðé îš ŕéáçháβļé~~~~]"
+          }
+        }
+      }
+    },
+    "log.node_unreachable": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active node is unreachable"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前节点不可连接"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Áçţîṽé ñõðé îš ûñŕéáçháβļé~~~~]"
+          }
+        }
+      }
+    },
+    "routing.rules.empty.title": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Engine-managed routing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引擎管理的路由"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Éñĝîñé-ɱáñáĝéð ŕõûţîñĝ~~~~]"
+          }
+        }
+      }
+    },
+    "routing.rules.empty.description": {
+      "comment": "Semantic Atlas localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Routing is generated from the selected node and DNS settings when the engine starts."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动引擎时会根据所选节点和 DNS 设置生成路由。"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Ŕõûţîñĝ îš ĝéñéŕáţéð ƒŕõɱ ţhé šéļéçţéð ñõðé áñð ÐÑŠ šéţţîñĝš ŵhéñ ţhé éñĝîñé šţáŕţš.~~~~]"
           }
         }
       }

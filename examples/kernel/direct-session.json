@@ -1,0 +1,11 @@
+{
+  "listen_host": "127.0.0.1",
+  "listen_port": 7890,
+  "selected_node": {
+    "protocol": "direct",
+    "server": "example.com",
+    "server_port": 443,
+    "user_id": "",
+    "parameters": {}
+  }
+}

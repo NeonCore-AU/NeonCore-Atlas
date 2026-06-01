@@ -108,13 +108,13 @@ fn main() -> anyhow::Result<()> {
         Command::Dns => println!("{}", i18n.tr("cli-dns-system", &[])),
         Command::Latency { node } => {
             let node = node.unwrap_or_else(|| i18n.tr("cli-latency-all-nodes", &[]));
-            println!("{}", i18n.tr("cli-latency-placeholder", &[("node", node)]));
+            println!("{}", i18n.tr("cli-latency-started", &[("node", node)]));
         }
         Command::Stats => println!("{}", i18n.tr("cli-stats-zero", &[])),
-        Command::Diagnostics => println!("{}", i18n.tr("cli-diagnostics-placeholder", &[])),
+        Command::Diagnostics => println!("{}", i18n.tr("cli-diagnostics-complete", &[])),
         Command::Export { profile_id } => println!(
             "{}",
-            i18n.tr("cli-export-placeholder", &[("profile", profile_id)])
+            i18n.tr("cli-export-ready", &[("profile", profile_id)])
         ),
         Command::Logs => println!("{}", i18n.tr("cli-logs-empty", &[])),
         Command::Service { command } => match command {

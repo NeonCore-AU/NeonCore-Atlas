@@ -7,6 +7,7 @@ members = [
     "crates/atlas-daemon",
     "crates/atlas-cli",
     "crates/atlas-updater",
+    "crates/neoncore-kernel",
 ]
 
 [workspace.package]

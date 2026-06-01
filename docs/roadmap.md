@@ -3,16 +3,16 @@
 ## v0.1
 
 - Compile Rust workspace.
-- Mock CLI and daemon workflows.
+- CLI and daemon workflows backed by owned kernel contracts.
 - Native app skeletons with localization resources.
-- i18n scripts and CI placeholders.
+- i18n scripts and CI checks.
 - Data models for subscriptions, DNS, routing rules, rewrites, stats, and diagnostics.
 
 ## v0.2
 
 - Local daemon IPC prototype.
 - Profile import validation.
-- Desktop GUI-to-daemon mock integration.
+- Desktop GUI-to-daemon integration.
 - Mobile permission flow prototypes.
 
 ## v0.5

@@ -8,7 +8,7 @@ Profiles group nodes, subscriptions, routing settings, DNS settings, and rewrite
 
 ## Nodes and Protocols
 
-Nodes carry endpoint, protocol, tags, UDP support, and TLS support metadata. The current protocol enum covers common neutral categories and leaves a custom protocol escape hatch for future adapters.
+Nodes carry endpoint, protocol, tags, UDP support, and TLS support metadata. The subscription importer preserves protocol parameters so the owned `neoncore-kernel` can consume exact node settings through its session schema.
 
 ## Routing Rules
 
@@ -25,3 +25,7 @@ Rewrite rules are stored as enabled pattern/replacement pairs. They are data onl
 ## Diagnostics and Stats
 
 The API includes latency test results, traffic counters, and diagnostic reports with stable message keys for localization.
+
+## Owned Kernel
+
+`neoncore-kernel` is the in-repository networking runtime. It currently owns the local SOCKS5 listener, session validation, bidirectional TCP relay infrastructure, and kernel session schema. Protocol transport adapters are implemented inside this crate rather than by downloading external cores.

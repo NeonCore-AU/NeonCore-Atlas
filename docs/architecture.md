@@ -8,7 +8,7 @@ NeonCore Atlas separates portable network-client logic from platform-specific UI
 
 ## Atlas Engine
 
-`atlas-engine` defines the `Engine` trait and `EngineStatus`. The current `MockEngine` makes command flows testable without starting a tunnel. A future engine adapter can wrap a real proxy/VPN engine behind the same trait.
+`atlas-engine` defines the `Engine` trait and `EngineStatus`. The runtime target is the owned `neoncore-kernel` binary, with platform apps and daemons calling it through explicit session files and IPC.
 
 ## Atlas API
 
@@ -26,4 +26,4 @@ Each platform uses its native UI toolkit: SwiftUI, Jetpack Compose, WinUI 3, and
 
 ## Mobile VPN Adapters
 
-The iOS Packet Tunnel Provider and Android `VpnService` placeholders are intentionally thin. Future work should isolate tunnel lifecycle, profile validation, DNS, routing, and permission handling behind testable adapters.
+The iOS Packet Tunnel Provider and Android `VpnService` adapters are intentionally thin. Tunnel lifecycle, profile validation, DNS, routing, and permission handling belong behind testable platform boundaries.

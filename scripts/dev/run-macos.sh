@@ -7,12 +7,16 @@ BUILD_DIR="$MACOS_DIR/.build/arm64-apple-macosx/debug"
 APP="$BUILD_DIR/NeonCore Atlas.app"
 
 cd "$MACOS_DIR"
+cd "$ROOT"
+cargo build -p neoncore-kernel
+cd "$MACOS_DIR"
 swift build
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BUILD_DIR/AtlasMacApp" "$APP/Contents/MacOS/AtlasMacApp"
 cp -R "$BUILD_DIR/AtlasMacApp_AtlasMacApp.bundle" "$APP/Contents/Resources/"
+cp "$ROOT/target/debug/neoncore-kernel" "$APP/Contents/Resources/neoncore-kernel"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -41,4 +45,5 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
+pkill -f "$APP/Contents/MacOS/AtlasMacApp" 2>/dev/null || true
 open "$APP"

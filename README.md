@@ -13,11 +13,12 @@ flowchart TD
     API --> Daemon[atlas-daemon]
     Daemon --> Engine[atlas-engine]
     Engine --> Core[atlas-core]
-    Mobile[iOS Packet Tunnel / Android VpnService placeholders] --> Core
+    Mobile[iOS Packet Tunnel / Android VpnService adapters] --> Core
 ```
 
 - `atlas-core`: pure Rust profile, node, subscription, routing, and state models.
-- `atlas-engine`: engine abstraction with a mock implementation, ready for future pluggable engine integration.
+- `atlas-engine`: engine abstraction for the owned `neoncore-kernel` runtime.
+- `neoncore-kernel`: the owned local networking kernel binary.
 - `atlas-api`: serde-compatible local API request and response types shared by CLI, daemon, and GUIs.
 - `atlas-daemon`: desktop service process scaffold for Windows, macOS, and Linux.
 - `atlas-cli`: cross-platform command-line client with localized output.
@@ -33,7 +34,7 @@ flowchart TD
 | macOS | SwiftUI | Network Extension/helper | Scaffold |
 | Windows | WinUI 3 / Windows App SDK | Windows Service, Wintun later | Scaffold |
 | Linux | GTK4 + libadwaita | systemd service, TUN later | Scaffold |
-| Desktop CLI | Rust + clap | Talks to daemon later | Mocked |
+| Desktop CLI | Rust + clap | Talks to daemon and kernel | In progress |
 
 ## Internationalization
 
