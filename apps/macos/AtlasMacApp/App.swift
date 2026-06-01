@@ -153,7 +153,7 @@ private final class AtlasStore: ObservableObject {
             log("log.connected")
         } catch {
             status = .disconnected
-            log("log.connect_failed", level: "warn")
+            log("log.protocol_adapter_missing", level: "warn")
         }
     }
 
@@ -288,6 +288,7 @@ private final class NeonCoreKernel {
         guard let binaryURL else { throw AtlasError.engineMissing }
         let session = try makeSession(node: node, port: port)
         try session.write(to: configURL)
+        try checkSession(binaryURL: binaryURL)
         let process = Process()
         process.executableURL = binaryURL
         process.arguments = ["run", "--session", configURL.path]
@@ -331,6 +332,19 @@ private final class NeonCoreKernel {
             "user_id": node.userID,
             "parameters": node.query
         ]
+    }
+
+    private func checkSession(binaryURL: URL) throws {
+        let process = Process()
+        process.executableURL = binaryURL
+        process.arguments = ["check", "--session", configURL.path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        if process.terminationStatus != 0 {
+            throw AtlasError.unsupportedProtocol
+        }
     }
 }
 
@@ -426,6 +440,7 @@ private enum AtlasError: Error {
     case invalidURL
     case subscriptionFailed
     case engineMissing
+    case unsupportedProtocol
     case systemProxyFailed
 }
 

@@ -1449,6 +1449,29 @@
           }
         }
       }
+    },
+    "log.protocol_adapter_missing": {
+      "comment": "Shown when the owned kernel has parsed a node but does not yet include its protocol transport adapter.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selected node protocol is not supported by neoncore-kernel yet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neoncore-kernel 暂不支持所选节点协议"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Šéļéçţéð ñõðé þŕõţõçõļ îš ñõţ šûþþõŕţéð βý ñéõñçõŕé-ķéŕñéļ ýéţ~~~~]"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

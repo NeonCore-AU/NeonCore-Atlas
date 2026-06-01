@@ -96,7 +96,17 @@ fn validate_session(session: &KernelSession) -> anyhow::Result<()> {
     if session.selected_node.server.is_empty() || session.selected_node.server_port == 0 {
         anyhow::bail!("selected node endpoint is invalid");
     }
+    if !supports_protocol(&session.selected_node.protocol) {
+        anyhow::bail!(
+            "protocol {} is parsed but its transport adapter is not implemented yet",
+            session.selected_node.protocol
+        );
+    }
     Ok(())
+}
+
+fn supports_protocol(protocol: &str) -> bool {
+    matches!(protocol, "direct")
 }
 
 fn handle_client(mut client: TcpStream, node: KernelNode) -> anyhow::Result<()> {
