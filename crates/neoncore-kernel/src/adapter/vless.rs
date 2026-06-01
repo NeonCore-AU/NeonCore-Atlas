@@ -145,7 +145,7 @@ fn read_response_header(stream: &mut TcpStream) -> anyhow::Result<()> {
         let mut addon = vec![0_u8; addon_len];
         stream.read_exact(&mut addon)?;
     }
-    stream.set_read_timeout(None)?;
+    let _ = stream.set_read_timeout(None);
     Ok(())
 }
 
@@ -153,6 +153,8 @@ fn read_response_header(stream: &mut TcpStream) -> anyhow::Result<()> {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::net::{Shutdown, TcpListener};
+    use std::thread;
 
     #[test]
     fn config_accepts_reality_parameters() {
@@ -195,5 +197,45 @@ mod tests {
         assert_eq!(&request[19..21], &443_u16.to_be_bytes());
         assert_eq!(request[21], 2);
         assert_eq!(request[22], "example.com".len() as u8);
+    }
+
+    #[test]
+    fn tcp_adapter_connects_and_strips_response_header() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 32];
+            let len = stream.read(&mut request).unwrap();
+            assert_eq!(request[0], 0);
+            assert_eq!(request[18], 1);
+            assert!(len > 21);
+            stream.write_all(&[0, 0]).unwrap();
+            stream.write_all(b"payload").unwrap();
+            stream.flush().unwrap();
+            thread::sleep(std::time::Duration::from_millis(50));
+            stream.shutdown(Shutdown::Write).unwrap();
+        });
+        let node = KernelNode {
+            protocol: "vless".to_string(),
+            server: "127.0.0.1".to_string(),
+            server_port: port,
+            user_id: "00112233-4455-6677-8899-aabbccddeeff".to_string(),
+            parameters: json!({
+                "security": "none",
+                "type": "tcp"
+            }),
+        };
+        let target = TargetAddress {
+            host: "example.com".to_string(),
+            port: 443,
+        };
+
+        let mut stream = VlessAdapter::connect(&node, &target).unwrap();
+        let mut payload = [0_u8; 7];
+        stream.read_exact(&mut payload).unwrap();
+
+        assert_eq!(&payload, b"payload");
+        server.join().unwrap();
     }
 }

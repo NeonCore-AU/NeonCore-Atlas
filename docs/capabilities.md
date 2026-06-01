@@ -34,6 +34,6 @@ Current adapter status:
 
 1. Direct TCP relay is available through the local SOCKS5 listener.
 2. VLESS TCP with no encrypted transport has request framing and response-header handling.
-3. Hysteria2 configuration parsing, Salamander datagram obfuscation, and TCP request framing are covered by tests.
+3. Hysteria2 configuration parsing, Salamander datagram obfuscation, TCP request/response framing, and UDP message framing are covered by tests.
 4. VLESS Reality configuration parsing and TCP request framing are covered by tests.
 5. Hysteria2 QUIC transport, VLESS encrypted transports, and AnyTLS are not marked available until their transport handshakes are implemented.
