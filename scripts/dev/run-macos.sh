@@ -14,8 +14,8 @@ swift build
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BUILD_DIR/AtlasMacApp" "$APP/Contents/MacOS/AtlasMacApp"
-cp -R "$BUILD_DIR/AtlasMacApp_AtlasMacApp.bundle" "$APP/Contents/Resources/"
+cp "$BUILD_DIR/NeonCoreMacApp" "$APP/Contents/MacOS/NeonCoreMacApp"
+cp -R "$BUILD_DIR/NeonCoreMacApp_NeonCoreMacApp.bundle" "$APP/Contents/Resources/"
 cp "$ROOT/target/debug/neoncore-kernel" "$APP/Contents/Resources/neoncore-kernel"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -24,9 +24,9 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>AtlasMacApp</string>
+    <string>NeonCoreMacApp</string>
     <key>CFBundleIdentifier</key>
-    <string>dev.neoncore.atlas.macos</string>
+    <string>dev.neoncore.macos</string>
     <key>CFBundleName</key>
     <string>NeonCore Atlas</string>
     <key>CFBundleDisplayName</key>
@@ -45,5 +45,5 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-pkill -f "$APP/Contents/MacOS/AtlasMacApp" 2>/dev/null || true
+pkill -f "$APP/Contents/MacOS/NeonCoreMacApp" 2>/dev/null || true
 open "$APP"

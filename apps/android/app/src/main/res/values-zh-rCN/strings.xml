@@ -15,6 +15,6 @@
     <string name="profiles_action_import_subscription">导入订阅</string>
     <string name="subscription_import_url_placeholder">订阅 URL</string>
     <string name="settings_language">语言</string>
-    <string name="accessibility_connect_button">连接或断开 Atlas</string>
+    <string name="accessibility_connect_button">连接或断开 NeonCore</string>
     <string name="tooltip_connect_button">切换连接</string>
 </resources>

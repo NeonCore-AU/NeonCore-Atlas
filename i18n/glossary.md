@@ -12,7 +12,7 @@
 - disconnect: stop a connection.
 - latency: measured delay to a node.
 - tunnel: protected traffic path managed by the platform VPN layer.
-- daemon: background Atlas process on desktop platforms.
+- daemon: background NeonCore process on desktop platforms.
 - service: OS-managed background component.
 - proxy: network intermediary.
 - VPN: platform virtual private network capability.

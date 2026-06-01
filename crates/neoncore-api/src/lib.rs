@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "snake_case")]
-pub enum AtlasRequest {
+pub enum NeonCoreRequest {
     Status,
     Connect { node: Option<String> },
     Disconnect,
@@ -27,7 +27,7 @@ pub enum AtlasRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum AtlasResponse {
+pub enum NeonCoreResponse {
     Status { status: EngineStatus },
     Connected { node: Option<String> },
     Disconnected,

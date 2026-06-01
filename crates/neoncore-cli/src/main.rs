@@ -132,7 +132,7 @@ struct I18n {
 
 impl I18n {
     fn from_env() -> Self {
-        let locale = std::env::var("ATLAS_LOCALE").unwrap_or_else(|_| "en-AU".to_string());
+        let locale = std::env::var("NEONCORE_LOCALE").unwrap_or_else(|_| "en-AU".to_string());
         let source = match locale.as_str() {
             "zh-Hans" => include_str!("../locales/zh-Hans.ftl"),
             "en-XA" => include_str!("../locales/en-XA.ftl"),

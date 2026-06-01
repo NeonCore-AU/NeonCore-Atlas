@@ -2,7 +2,7 @@
 
 NeonCore Atlas is an open-source advanced network client scaffold for desktop and mobile platforms. It is designed for native apps, shared Rust core logic, and future pluggable proxy/VPN engine support, while keeping the first version focused on long-term architecture instead of production VPN or proxy tunneling.
 
-Atlas does not include paid service credentials, analytics, telemetry, or real traffic tunneling in this initial scaffold.
+NeonCore Atlas does not include paid service credentials, analytics, telemetry, or real traffic tunneling in this initial scaffold.
 
 ## Architecture
 

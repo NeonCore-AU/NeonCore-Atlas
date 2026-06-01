@@ -14,5 +14,5 @@ nodes-empty-description = 导入订阅或手动添加服务器即可开始。
 profiles-action-import-subscription = 导入订阅
 subscription-import-url-placeholder = 订阅 URL
 settings-language = 语言
-accessibility-connect-button = 连接或断开 Atlas
+accessibility-connect-button = 连接或断开 NeonCore
 tooltip-connect-button = 切换连接

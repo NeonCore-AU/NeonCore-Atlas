@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 mod tun;
 
-const APP_ID: &str = "dev.neoncore.atlas";
+const APP_ID: &str = "dev.neoncore.app";
 
 fn main() {
     let app = Application::builder().application_id(APP_ID).build();
@@ -51,9 +51,9 @@ fn build_ui(app: &Application) {
     window.present();
 }
 
-struct AtlasDaemonClient;
+struct NeonCoreDaemonClient;
 
-impl AtlasDaemonClient {
+impl NeonCoreDaemonClient {
     fn endpoint_description(&self) -> &'static str {
         "Unix domain socket client with Linux tun/tap packet adapter"
     }
@@ -65,7 +65,7 @@ struct I18n {
 
 impl I18n {
     fn from_env() -> Self {
-        let locale = std::env::var("ATLAS_LOCALE").unwrap_or_else(|_| "en-AU".to_string());
+        let locale = std::env::var("NEONCORE_LOCALE").unwrap_or_else(|_| "en-AU".to_string());
         let source = match locale.as_str() {
             "zh-Hans" => include_str!("../i18n/zh-Hans.ftl"),
             "en-XA" => include_str!("../i18n/en-XA.ftl"),

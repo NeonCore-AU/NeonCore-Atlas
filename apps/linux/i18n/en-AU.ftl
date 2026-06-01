@@ -14,5 +14,5 @@ nodes-empty-description = Import a subscription or add a server manually to get 
 profiles-action-import-subscription = Import subscription
 subscription-import-url-placeholder = Subscription URL
 settings-language = Language
-accessibility-connect-button = Connect or disconnect Atlas
+accessibility-connect-button = Connect or disconnect NeonCore
 tooltip-connect-button = Toggle connection

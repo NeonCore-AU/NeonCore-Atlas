@@ -2,7 +2,7 @@
   "sourceLanguage": "en-AU",
   "strings": {
     "app.name": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -25,7 +25,7 @@
       }
     },
     "app.tagline": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -48,7 +48,7 @@
       }
     },
     "nav.dashboard": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -71,7 +71,7 @@
       }
     },
     "nav.nodes": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -94,7 +94,7 @@
       }
     },
     "nav.profiles": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -117,7 +117,7 @@
       }
     },
     "nav.routing": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -140,7 +140,7 @@
       }
     },
     "nav.logs": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -163,7 +163,7 @@
       }
     },
     "nav.settings": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -186,7 +186,7 @@
       }
     },
     "connection.status.disconnected": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -209,7 +209,7 @@
       }
     },
     "connection.action.connect": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -232,7 +232,7 @@
       }
     },
     "connection.action.disconnect": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -255,7 +255,7 @@
       }
     },
     "nodes.empty.title": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -278,7 +278,7 @@
       }
     },
     "nodes.empty.description": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -301,7 +301,7 @@
       }
     },
     "profiles.action.import_subscription": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -324,7 +324,7 @@
       }
     },
     "subscription.import.url_placeholder": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -347,7 +347,7 @@
       }
     },
     "settings.language": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -370,30 +370,30 @@
       }
     },
     "accessibility.connect_button": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
             "state": "translated",
-            "value": "Connect or disconnect Atlas"
+            "value": "Connect or disconnect NeonCore"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "连接或断开 Atlas"
+            "value": "连接或断开 NeonCore"
           }
         },
         "en-XA": {
           "stringUnit": {
             "state": "translated",
-            "value": "[Connect or disconnect Atlas~~~~]"
+            "value": "[Connect or disconnect NeonCore~~~~]"
           }
         }
       }
     },
     "tooltip.connect_button": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -416,7 +416,7 @@
       }
     },
     "topbar.control_plane": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -439,7 +439,7 @@
       }
     },
     "nav.diagnostics": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -462,18 +462,18 @@
       }
     },
     "dashboard.hero.title": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atlas control plane"
+            "value": "NeonCore control plane"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atlas 控制台"
+            "value": "NeonCore 控制台"
           }
         },
         "en-XA": {
@@ -485,7 +485,7 @@
       }
     },
     "dashboard.hero.subtitle": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -508,7 +508,7 @@
       }
     },
     "metric.nodes": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -531,7 +531,7 @@
       }
     },
     "metric.profiles": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -554,7 +554,7 @@
       }
     },
     "metric.latency": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -577,7 +577,7 @@
       }
     },
     "metric.traffic": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -600,7 +600,7 @@
       }
     },
     "metric.ready": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -623,7 +623,7 @@
       }
     },
     "metric.loaded": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -646,7 +646,7 @@
       }
     },
     "metric.latest": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -669,7 +669,7 @@
       }
     },
     "metric.session": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -692,7 +692,7 @@
       }
     },
     "empty.logs.description": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -715,7 +715,7 @@
       }
     },
     "topbar.status": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -738,7 +738,7 @@
       }
     },
     "routing.action.add_rule": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -761,7 +761,7 @@
       }
     },
     "dns.title": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -784,7 +784,7 @@
       }
     },
     "dns.mode.system": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -807,7 +807,7 @@
       }
     },
     "dns.mode.remote": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -830,7 +830,7 @@
       }
     },
     "dns.mode.parallel": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -853,7 +853,7 @@
       }
     },
     "dns.prefer_ipv6": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -876,7 +876,7 @@
       }
     },
     "settings.enabled": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -899,7 +899,7 @@
       }
     },
     "settings.disabled": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -922,7 +922,7 @@
       }
     },
     "diagnostics.action.run": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -945,7 +945,7 @@
       }
     },
     "diagnostics.daemon": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -968,7 +968,7 @@
       }
     },
     "diagnostics.profile": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -991,7 +991,7 @@
       }
     },
     "diagnostics.latency": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1014,7 +1014,7 @@
       }
     },
     "settings.launch_at_login": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1037,7 +1037,7 @@
       }
     },
     "settings.show_advanced": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1060,7 +1060,7 @@
       }
     },
     "settings.debug_logs": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1083,18 +1083,18 @@
       }
     },
     "log.app_ready": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atlas app ready"
+            "value": "NeonCore app ready"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atlas 应用已就绪"
+            "value": "NeonCore 应用已就绪"
           }
         },
         "en-XA": {
@@ -1106,7 +1106,7 @@
       }
     },
     "log.disconnected": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1129,7 +1129,7 @@
       }
     },
     "log.connected": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1152,7 +1152,7 @@
       }
     },
     "log.node_selected": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1175,7 +1175,7 @@
       }
     },
     "log.node_added": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1198,7 +1198,7 @@
       }
     },
     "log.latency_completed": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1221,7 +1221,7 @@
       }
     },
     "log.rule_added": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1244,7 +1244,7 @@
       }
     },
     "log.diagnostics_completed": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1267,7 +1267,7 @@
       }
     },
     "metric.system_proxy": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1290,7 +1290,7 @@
       }
     },
     "log.connect_failed": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1313,7 +1313,7 @@
       }
     },
     "log.engine_available": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1336,7 +1336,7 @@
       }
     },
     "log.engine_missing": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1359,7 +1359,7 @@
       }
     },
     "log.node_reachable": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1382,7 +1382,7 @@
       }
     },
     "log.node_unreachable": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1405,7 +1405,7 @@
       }
     },
     "routing.rules.empty.title": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {
@@ -1428,7 +1428,7 @@
       }
     },
     "routing.rules.empty.description": {
-      "comment": "Semantic Atlas localization key.",
+      "comment": "Semantic NeonCore localization key.",
       "localizations": {
         "en-AU": {
           "stringUnit": {

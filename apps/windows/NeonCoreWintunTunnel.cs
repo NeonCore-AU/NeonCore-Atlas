@@ -4,9 +4,9 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace NeonCore.Atlas;
+namespace NeonCore.Windows;
 
-public sealed class WintunTunnel : IDisposable
+public sealed class NeonCoreWintunTunnel : IDisposable
 {
     private readonly PacketClassifier classifier = new();
     private CancellationTokenSource? cancellation;

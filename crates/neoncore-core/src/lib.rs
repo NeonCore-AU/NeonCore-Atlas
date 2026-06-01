@@ -218,21 +218,21 @@ pub enum ConnectionState {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum AtlasCoreError {
+pub enum NeonCoreCoreError {
     #[error("invalid profile configuration")]
     InvalidProfile,
     #[error("invalid subscription URL")]
     InvalidSubscriptionUrl,
 }
 
-pub fn parse_profile_config(_source: &str) -> Result<Profile, AtlasCoreError> {
-    // Future work: parse native Atlas profiles and imported engine configs.
+pub fn parse_profile_config(_source: &str) -> Result<Profile, NeonCoreCoreError> {
+    // Future work: parse native NeonCore profiles and imported engine configs.
     Ok(Profile::empty("default", "Default"))
 }
 
-pub fn import_subscription(url: &str) -> Result<Subscription, AtlasCoreError> {
+pub fn import_subscription(url: &str) -> Result<Subscription, NeonCoreCoreError> {
     if !(url.starts_with("https://") || url.starts_with("http://")) {
-        return Err(AtlasCoreError::InvalidSubscriptionUrl);
+        return Err(NeonCoreCoreError::InvalidSubscriptionUrl);
     }
 
     Ok(Subscription {
@@ -287,7 +287,7 @@ mod tests {
     #[test]
     fn subscription_import_rejects_non_urls() {
         let err = import_subscription("not-a-url").unwrap_err();
-        assert!(matches!(err, AtlasCoreError::InvalidSubscriptionUrl));
+        assert!(matches!(err, NeonCoreCoreError::InvalidSubscriptionUrl));
     }
 
     #[test]

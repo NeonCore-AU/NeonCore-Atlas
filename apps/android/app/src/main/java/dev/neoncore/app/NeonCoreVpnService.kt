@@ -1,4 +1,4 @@
-package dev.neoncore.atlas
+package dev.neoncore.app
 
 import android.content.Intent
 import android.net.VpnService
@@ -6,7 +6,7 @@ import android.os.ParcelFileDescriptor
 import java.io.FileInputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
-class AtlasVpnService : VpnService() {
+class NeonCoreVpnService : VpnService() {
     private var tunnel: ParcelFileDescriptor? = null
     private var packetThread: Thread? = null
     private val running = AtomicBoolean(false)

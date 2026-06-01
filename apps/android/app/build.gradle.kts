@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "dev.neoncore.atlas"
+    namespace = "dev.neoncore.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "dev.neoncore.atlas"
+        applicationId = "dev.neoncore.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

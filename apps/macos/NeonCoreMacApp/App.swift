@@ -4,9 +4,9 @@ import CoreText
 import SwiftUI
 
 @main
-struct AtlasMacApp: App {
+struct NeonCoreMacApp: App {
     init() {
-        AtlasFont.register()
+        NeonCoreFont.register()
     }
 
     var body: some Scene {
@@ -18,7 +18,7 @@ struct AtlasMacApp: App {
     }
 }
 
-private enum AtlasPage: String, CaseIterable, Identifiable {
+private enum NeonCorePage: String, CaseIterable, Identifiable {
     case dashboard
     case nodes
     case profiles
@@ -48,8 +48,8 @@ private enum ConnectionStatus {
 }
 
 @MainActor
-private final class AtlasStore: ObservableObject {
-    @Published var selectedPage: AtlasPage = .dashboard
+private final class NeonCoreStore: ObservableObject {
+    @Published var selectedPage: NeonCorePage = .dashboard
     @Published var status: ConnectionStatus = .disconnected
     @Published var activeNodeID: UUID?
     @Published var subscriptionURL = ""
@@ -62,16 +62,16 @@ private final class AtlasStore: ObservableObject {
     @Published var directBytesOut = 0
     @Published var lastLatencyRun = "--"
     @Published var localProxyPort = 7890
-    @Published var logs: [AtlasLog] = [
+    @Published var logs: [NeonCoreLog] = [
         .init(level: "info", messageKey: "log.app_ready"),
     ]
-    @Published var nodes: [AtlasNode] = []
-    @Published var profiles: [AtlasProfile] = []
-    @Published var rules: [AtlasRule] = []
+    @Published var nodes: [NeonCoreNode] = []
+    @Published var profiles: [NeonCoreProfile] = []
+    @Published var rules: [NeonCoreRule] = []
 
     private let engine = NeonCoreKernel()
 
-    var activeNode: AtlasNode? {
+    var activeNode: NeonCoreNode? {
         nodes.first { $0.id == activeNodeID } ?? nodes.first
     }
 
@@ -87,7 +87,7 @@ private final class AtlasStore: ObservableObject {
         }
     }
 
-    func selectNode(_ node: AtlasNode) {
+    func selectNode(_ node: NeonCoreNode) {
         activeNodeID = node.id
         connect()
     }
@@ -165,7 +165,7 @@ private final class AtlasStore: ObservableObject {
     }
 }
 
-private struct AtlasNode: Identifiable {
+private struct NeonCoreNode: Identifiable {
     let id = UUID()
     var name: String
     var region: String
@@ -182,13 +182,13 @@ private struct AtlasNode: Identifiable {
     }
 }
 
-private struct AtlasProfile: Identifiable {
+private struct NeonCoreProfile: Identifiable {
     let id = UUID()
     var name: String
     var detail: String
 }
 
-private struct AtlasRule: Identifiable {
+private struct NeonCoreRule: Identifiable {
     let id = UUID()
     var name: String
     var matcher: String
@@ -196,7 +196,7 @@ private struct AtlasRule: Identifiable {
     var enabled: Bool
 }
 
-private struct AtlasLog: Identifiable {
+private struct NeonCoreLog: Identifiable {
     let id = UUID()
     let time = Date.now
     var level: String
@@ -204,12 +204,12 @@ private struct AtlasLog: Identifiable {
 }
 
 private enum SubscriptionParser {
-    static func fetch(urlString: String) async throws -> [AtlasNode] {
-        guard let url = URL(string: urlString) else { throw AtlasError.invalidURL }
+    static func fetch(urlString: String) async throws -> [NeonCoreNode] {
+        guard let url = URL(string: urlString) else { throw NeonCoreError.invalidURL }
         var request = URLRequest(url: url)
-        request.setValue("NeonCoreAtlas/0.1 macOS", forHTTPHeaderField: "User-Agent")
+        request.setValue("NeonCore/0.1 macOS", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw AtlasError.subscriptionFailed }
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw NeonCoreError.subscriptionFailed }
         let body = String(decoding: data, as: UTF8.self)
         let decoded = decodeSubscriptionBody(body)
         return decoded
@@ -230,7 +230,7 @@ private enum SubscriptionParser {
         return body
     }
 
-    private static func parseNode(_ line: String) -> AtlasNode? {
+    private static func parseNode(_ line: String) -> NeonCoreNode? {
         guard let components = URLComponents(string: line),
               let scheme = components.scheme?.lowercased(),
               let host = components.host,
@@ -243,7 +243,7 @@ private enum SubscriptionParser {
         })
         let name = components.percentEncodedFragment?.removingPercentEncoding ?? "\(scheme.uppercased()) \(host)"
         let tags = tagsFor(scheme: scheme, query: query)
-        return AtlasNode(
+        return NeonCoreNode(
             name: name,
             region: region(from: name),
             host: host,
@@ -283,9 +283,9 @@ private final class NeonCoreKernel {
         binaryURL != nil
     }
 
-    func start(node: AtlasNode, port: Int) throws {
+    func start(node: NeonCoreNode, port: Int) throws {
         stop()
-        guard let binaryURL else { throw AtlasError.engineMissing }
+        guard let binaryURL else { throw NeonCoreError.engineMissing }
         let session = try makeSession(node: node, port: port)
         try session.write(to: configURL)
         try checkSession(binaryURL: binaryURL)
@@ -315,7 +315,7 @@ private final class NeonCoreKernel {
         return nil
     }
 
-    private func makeSession(node: AtlasNode, port: Int) throws -> Data {
+    private func makeSession(node: NeonCoreNode, port: Int) throws -> Data {
         let session: [String: Any] = [
             "listen_host": "127.0.0.1",
             "listen_port": port,
@@ -324,7 +324,7 @@ private final class NeonCoreKernel {
         return try JSONSerialization.data(withJSONObject: session, options: [.prettyPrinted, .sortedKeys])
     }
 
-    private func makeKernelNode(node: AtlasNode) -> [String: Any] {
+    private func makeKernelNode(node: NeonCoreNode) -> [String: Any] {
         [
             "protocol": node.protocolName,
             "server": node.host,
@@ -343,7 +343,7 @@ private final class NeonCoreKernel {
         try process.run()
         process.waitUntilExit()
         if process.terminationStatus != 0 {
-            throw AtlasError.unsupportedProtocol
+            throw NeonCoreError.unsupportedProtocol
         }
     }
 }
@@ -383,7 +383,7 @@ private enum SystemProxy {
         process.arguments = arguments
         try process.run()
         process.waitUntilExit()
-        if process.terminationStatus != 0 { throw AtlasError.systemProxyFailed }
+        if process.terminationStatus != 0 { throw NeonCoreError.systemProxyFailed }
     }
 
     private static func capture(_ executable: String, _ arguments: [String]) throws -> String {
@@ -436,7 +436,7 @@ private final class ProbeState: @unchecked Sendable {
     }
 }
 
-private enum AtlasError: Error {
+private enum NeonCoreError: Error {
     case invalidURL
     case subscriptionFailed
     case engineMissing
@@ -445,11 +445,11 @@ private enum AtlasError: Error {
 }
 
 struct ContentView: View {
-    @StateObject private var store = AtlasStore()
+    @StateObject private var store = NeonCoreStore()
 
     var body: some View {
         ZStack {
-            AtlasBackground()
+            NeonCoreBackground()
             HStack(spacing: 0) {
                 Sidebar(store: store)
                 Workspace(store: store)
@@ -460,26 +460,26 @@ struct ContentView: View {
 }
 
 private struct Sidebar: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(spacing: 18) {
             VStack(spacing: 2) {
                 Text("app.name".localized)
-                    .font(.custom(AtlasTheme.fontName, size: 24).weight(.bold))
+                    .font(.custom(NeonCoreTheme.fontName, size: 24).weight(.bold))
                     .foregroundStyle(.white)
                 Text("app.tagline".localized)
-                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.semibold))
-                    .foregroundStyle(AtlasTheme.muted)
+                    .font(.custom(NeonCoreTheme.fontName, size: 11).weight(.semibold))
+                    .foregroundStyle(NeonCoreTheme.muted)
                     .textCase(.uppercase)
             }
             .frame(maxWidth: .infinity, minHeight: 86)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(AtlasTheme.line).frame(height: 1)
+                Rectangle().fill(NeonCoreTheme.line).frame(height: 1)
             }
 
             VStack(spacing: 8) {
-                ForEach(AtlasPage.allCases) { page in
+                ForEach(NeonCorePage.allCases) { page in
                     Button {
                         store.selectedPage = page
                     } label: {
@@ -487,7 +487,7 @@ private struct Sidebar: View {
                             Image(systemName: page.symbol)
                                 .frame(width: 20)
                             Text(page.titleKey.localized)
-                                .font(.custom(AtlasTheme.fontName, size: 13).weight(.bold))
+                                .font(.custom(NeonCoreTheme.fontName, size: 13).weight(.bold))
                             Spacer()
                         }
                         .textCase(.uppercase)
@@ -502,8 +502,8 @@ private struct Sidebar: View {
             VStack(alignment: .leading, spacing: 10) {
                 StatusPill(key: store.statusKey, tone: store.status == .connected ? .good : .muted)
                 Text("settings.language".localized)
-                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.semibold))
-                    .foregroundStyle(AtlasTheme.muted)
+                    .font(.custom(NeonCoreTheme.fontName, size: 11).weight(.semibold))
+                    .foregroundStyle(NeonCoreTheme.muted)
                 Text("en-AU · zh-Hans · en-XA")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.72))
@@ -516,13 +516,13 @@ private struct Sidebar: View {
         .frame(width: 292)
         .background(.black.opacity(0.88))
         .overlay(alignment: .trailing) {
-            Rectangle().fill(AtlasTheme.line).frame(width: 1)
+            Rectangle().fill(NeonCoreTheme.line).frame(width: 1)
         }
     }
 }
 
 private struct Workspace: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         ScrollView {
@@ -544,17 +544,17 @@ private struct Workspace: View {
 }
 
 private struct Topbar: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("topbar.control_plane".localized)
-                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.bold))
-                    .foregroundStyle(AtlasTheme.cyan)
+                    .font(.custom(NeonCoreTheme.fontName, size: 11).weight(.bold))
+                    .foregroundStyle(NeonCoreTheme.cyan)
                     .textCase(.uppercase)
                 Text(store.selectedPage.titleKey.localized)
-                    .font(.custom(AtlasTheme.fontName, size: 44).weight(.bold))
+                    .font(.custom(NeonCoreTheme.fontName, size: 44).weight(.bold))
                     .textCase(.uppercase)
             }
             Spacer()
@@ -572,13 +572,13 @@ private struct Topbar: View {
         }
         .frame(height: 90)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(AtlasTheme.line).frame(height: 1)
+            Rectangle().fill(NeonCoreTheme.line).frame(height: 1)
         }
     }
 }
 
 private struct DashboardPage: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(spacing: 18) {
@@ -598,19 +598,19 @@ private struct DashboardPage: View {
 }
 
 private struct HeroPanel: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("dashboard.hero.title".localized)
-                        .font(.custom(AtlasTheme.fontName, size: 58).weight(.bold))
+                        .font(.custom(NeonCoreTheme.fontName, size: 58).weight(.bold))
                         .lineLimit(2)
                         .textCase(.uppercase)
                     Text("dashboard.hero.subtitle".localized)
-                        .font(.custom(AtlasTheme.fontName, size: 16).weight(.semibold))
-                        .foregroundStyle(AtlasTheme.muted)
+                        .font(.custom(NeonCoreTheme.fontName, size: 16).weight(.semibold))
+                        .foregroundStyle(NeonCoreTheme.muted)
                 }
                 Spacer()
                 TrafficDial(store: store)
@@ -631,14 +631,14 @@ private struct HeroPanel: View {
         .frame(maxWidth: .infinity, minHeight: 310, alignment: .leading)
         .neonPanel()
         .overlay(alignment: .bottom) {
-            LinearGradient(colors: [AtlasTheme.cyan, AtlasTheme.blue, AtlasTheme.violet], startPoint: .leading, endPoint: .trailing)
+            LinearGradient(colors: [NeonCoreTheme.cyan, NeonCoreTheme.blue, NeonCoreTheme.violet], startPoint: .leading, endPoint: .trailing)
                 .frame(height: 2)
         }
     }
 }
 
 private struct TrafficDial: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         ZStack {
@@ -646,15 +646,15 @@ private struct TrafficDial: View {
                 .stroke(.white.opacity(0.08), lineWidth: 18)
             Circle()
                 .trim(from: 0, to: store.status == .connected ? 0.72 : 0.18)
-                .stroke(AtlasTheme.cyan, style: StrokeStyle(lineWidth: 18, lineCap: .round))
+                .stroke(NeonCoreTheme.cyan, style: StrokeStyle(lineWidth: 18, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .shadow(color: AtlasTheme.cyan.opacity(0.55), radius: 14)
+                .shadow(color: NeonCoreTheme.cyan.opacity(0.55), radius: 14)
             VStack(spacing: 2) {
                 Text(store.status == .connected ? "72%" : "18%")
-                    .font(.custom(AtlasTheme.fontName, size: 34).weight(.bold))
+                    .font(.custom(NeonCoreTheme.fontName, size: 34).weight(.bold))
                 Text("metric.session".localized)
-                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.semibold))
-                    .foregroundStyle(AtlasTheme.muted)
+                    .font(.custom(NeonCoreTheme.fontName, size: 11).weight(.semibold))
+                    .foregroundStyle(NeonCoreTheme.muted)
                     .textCase(.uppercase)
             }
         }
@@ -663,7 +663,7 @@ private struct TrafficDial: View {
 }
 
 private struct NodesSummary: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -680,7 +680,7 @@ private struct NodesSummary: View {
 }
 
 private struct LogsSummary: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -701,7 +701,7 @@ private struct LogsSummary: View {
 }
 
 private struct NodesPage: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(spacing: 18) {
@@ -718,10 +718,10 @@ private struct NodesPage: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(node.name)
-                                    .font(.custom(AtlasTheme.fontName, size: 20).weight(.bold))
+                                    .font(.custom(NeonCoreTheme.fontName, size: 20).weight(.bold))
                                 Text(node.endpoint)
                                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(AtlasTheme.muted)
+                                    .foregroundStyle(NeonCoreTheme.muted)
                             }
                             Spacer()
                             StatusPill(key: node.latency.map { "\($0) ms" } ?? "nodes.latency.unknown", tone: node.latency == nil ? .muted : .good)
@@ -729,10 +729,10 @@ private struct NodesPage: View {
                         HStack {
                             ForEach(node.tags, id: \.self) { tag in
                                 Text(tag)
-                                    .font(.custom(AtlasTheme.fontName, size: 11).weight(.bold))
+                                    .font(.custom(NeonCoreTheme.fontName, size: 11).weight(.bold))
                                     .padding(.horizontal, 9)
                                     .frame(height: 26)
-                                    .overlay(RoundedRectangle(cornerRadius: 0).stroke(AtlasTheme.lineBright))
+                                    .overlay(RoundedRectangle(cornerRadius: 0).stroke(NeonCoreTheme.lineBright))
                             }
                             Spacer()
                             Button("connection.action.connect".localized) {
@@ -754,7 +754,7 @@ private struct NodesPage: View {
 }
 
 private struct ProfilesPage: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(spacing: 18) {
@@ -770,7 +770,7 @@ private struct ProfilesPage: View {
                 ForEach(store.profiles) { profile in
                     DataRow(primary: profile.name, secondary: profile.detail, trailing: "routing.mode.rule".localized, tone: .good)
                         .padding(14)
-                        .background(AtlasTheme.panel2)
+                        .background(NeonCoreTheme.panel2)
                 }
             }
             .neonPanel()
@@ -779,14 +779,14 @@ private struct ProfilesPage: View {
 }
 
 private struct RoutingPage: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(spacing: 18) {
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("routing.mode.rule".localized)
-                        .font(.custom(AtlasTheme.fontName, size: 20).weight(.bold))
+                        .font(.custom(NeonCoreTheme.fontName, size: 20).weight(.bold))
                     Picker("", selection: $store.routingMode) {
                         Text("routing.mode.global".localized).tag("Global")
                         Text("routing.mode.rule".localized).tag("Rule")
@@ -799,7 +799,7 @@ private struct RoutingPage: View {
 
                 VStack(alignment: .leading, spacing: 14) {
                     Text("dns.title".localized)
-                        .font(.custom(AtlasTheme.fontName, size: 20).weight(.bold))
+                        .font(.custom(NeonCoreTheme.fontName, size: 20).weight(.bold))
                     Picker("", selection: $store.dnsMode) {
                         Text("dns.mode.system".localized).tag("System")
                         Text("dns.mode.remote".localized).tag("Remote")
@@ -819,12 +819,12 @@ private struct RoutingPage: View {
                     }
                     .toggleStyle(.switch)
                     .padding(14)
-                    .background(AtlasTheme.panel2)
+                    .background(NeonCoreTheme.panel2)
                 }
                 if store.rules.isEmpty {
                     EmptyState(titleKey: "routing.rules.empty.title", descriptionKey: "routing.rules.empty.description")
                         .padding(14)
-                        .background(AtlasTheme.panel2)
+                        .background(NeonCoreTheme.panel2)
                 }
             }
             .neonPanel()
@@ -833,7 +833,7 @@ private struct RoutingPage: View {
 }
 
 private struct LogsPage: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -854,7 +854,7 @@ private struct LogsPage: View {
 }
 
 private struct DiagnosticsPage: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(spacing: 18) {
@@ -875,13 +875,13 @@ private struct DiagnosticsPage: View {
 }
 
 private struct SettingsPage: View {
-    @ObservedObject var store: AtlasStore
+    @ObservedObject var store: NeonCoreStore
 
     var body: some View {
         VStack(spacing: 18) {
             VStack(alignment: .leading, spacing: 14) {
                 Text("settings.title".localized)
-                    .font(.custom(AtlasTheme.fontName, size: 24).weight(.bold))
+                    .font(.custom(NeonCoreTheme.fontName, size: 24).weight(.bold))
                 Toggle("settings.launch_at_login".localized, isOn: .constant(false))
                 Toggle("settings.show_advanced".localized, isOn: .constant(true))
                 Toggle("settings.debug_logs".localized, isOn: .constant(true))
@@ -903,7 +903,7 @@ private struct PageActions: View {
     var body: some View {
         HStack {
             Text(titleKey.localized)
-                .font(.custom(AtlasTheme.fontName, size: 26).weight(.bold))
+                .font(.custom(NeonCoreTheme.fontName, size: 26).weight(.bold))
                 .textCase(.uppercase)
             Spacer()
             Button {
@@ -933,7 +933,7 @@ private struct SectionHeader: View {
     var body: some View {
         HStack {
             Text(titleKey.localized)
-                .font(.custom(AtlasTheme.fontName, size: 22).weight(.bold))
+                .font(.custom(NeonCoreTheme.fontName, size: 22).weight(.bold))
                 .textCase(.uppercase)
             Spacer()
             Button {
@@ -954,14 +954,14 @@ private struct MetricCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(titleKey.localized)
-                .font(.custom(AtlasTheme.fontName, size: 12).weight(.bold))
-                .foregroundStyle(AtlasTheme.muted)
+                .font(.custom(NeonCoreTheme.fontName, size: 12).weight(.bold))
+                .foregroundStyle(NeonCoreTheme.muted)
                 .textCase(.uppercase)
             Text(value)
-                .font(.custom(AtlasTheme.fontName, size: 30).weight(.bold))
+                .font(.custom(NeonCoreTheme.fontName, size: 30).weight(.bold))
             Text(footKey.localized)
-                .font(.custom(AtlasTheme.fontName, size: 12).weight(.semibold))
-                .foregroundStyle(AtlasTheme.muted)
+                .font(.custom(NeonCoreTheme.fontName, size: 12).weight(.semibold))
+                .foregroundStyle(NeonCoreTheme.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
@@ -973,16 +973,16 @@ private struct DataRow: View {
     let primary: String
     let secondary: String
     let trailing: String
-    let tone: AtlasTone
+    let tone: NeonCoreTone
 
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(primary)
-                    .font(.custom(AtlasTheme.fontName, size: 15).weight(.bold))
+                    .font(.custom(NeonCoreTheme.fontName, size: 15).weight(.bold))
                 Text(secondary)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(AtlasTheme.muted)
+                    .foregroundStyle(NeonCoreTheme.muted)
             }
             Spacer()
             StatusPill(key: trailing, tone: tone)
@@ -997,16 +997,16 @@ private struct EmptyState: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(titleKey.localized)
-                .font(.custom(AtlasTheme.fontName, size: 20).weight(.bold))
+                .font(.custom(NeonCoreTheme.fontName, size: 20).weight(.bold))
             Text(descriptionKey.localized)
-                .foregroundStyle(AtlasTheme.muted)
+                .foregroundStyle(NeonCoreTheme.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
     }
 }
 
-private enum AtlasTone {
+private enum NeonCoreTone {
     case good
     case warn
     case muted
@@ -1014,11 +1014,11 @@ private enum AtlasTone {
 
 private struct StatusPill: View {
     let key: String
-    let tone: AtlasTone
+    let tone: NeonCoreTone
 
     var body: some View {
         Text(key.localized)
-            .font(.custom(AtlasTheme.fontName, size: 11).weight(.bold))
+            .font(.custom(NeonCoreTheme.fontName, size: 11).weight(.bold))
             .padding(.horizontal, 10)
             .frame(minHeight: 28)
             .foregroundStyle(color)
@@ -1029,20 +1029,20 @@ private struct StatusPill: View {
 
     private var color: Color {
         switch tone {
-        case .good: AtlasTheme.cyan
-        case .warn: AtlasTheme.warn
-        case .muted: AtlasTheme.muted
+        case .good: NeonCoreTheme.cyan
+        case .warn: NeonCoreTheme.warn
+        case .muted: NeonCoreTheme.muted
         }
     }
 }
 
-private struct AtlasBackground: View {
+private struct NeonCoreBackground: View {
     var body: some View {
         ZStack {
             Color.black
             GridPattern()
                 .stroke(.white.opacity(0.055), lineWidth: 1)
-            LinearGradient(colors: [.black.opacity(0.12), AtlasTheme.blue.opacity(0.08), .black.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            LinearGradient(colors: [.black.opacity(0.12), NeonCoreTheme.blue.opacity(0.08), .black.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
         .ignoresSafeArea()
     }
@@ -1068,7 +1068,7 @@ private struct GridPattern: Shape {
     }
 }
 
-private enum AtlasTheme {
+private enum NeonCoreTheme {
     static let fontName = "Rajdhani"
     static let panel = Color(red: 0.02, green: 0.027, blue: 0.05)
     static let panel2 = Color(red: 0.031, green: 0.051, blue: 0.086)
@@ -1081,7 +1081,7 @@ private enum AtlasTheme {
     static let warn = Color(red: 1, green: 0.737, blue: 0.259)
 }
 
-private enum AtlasFont {
+private enum NeonCoreFont {
     static func register() {
         for file in ["rajdhani-400", "rajdhani-600", "rajdhani-700"] {
             guard let url = Bundle.module.url(forResource: file, withExtension: "woff2", subdirectory: "Fonts") else {
@@ -1095,9 +1095,9 @@ private enum AtlasFont {
 private extension View {
     func neonPanel(active: Bool = false) -> some View {
         self
-            .background(active ? AtlasTheme.cyan.opacity(0.08) : AtlasTheme.panel.opacity(0.94))
-            .overlay(Rectangle().stroke(active ? AtlasTheme.cyan : AtlasTheme.lineBright, lineWidth: 1))
-            .shadow(color: active ? AtlasTheme.cyan.opacity(0.22) : .clear, radius: 18)
+            .background(active ? NeonCoreTheme.cyan.opacity(0.08) : NeonCoreTheme.panel.opacity(0.94))
+            .overlay(Rectangle().stroke(active ? NeonCoreTheme.cyan : NeonCoreTheme.lineBright, lineWidth: 1))
+            .shadow(color: active ? NeonCoreTheme.cyan.opacity(0.22) : .clear, radius: 18)
     }
 }
 
@@ -1108,16 +1108,16 @@ private struct NeonNavButtonStyle: ButtonStyle {
         configuration.label
             .frame(minHeight: 44)
             .padding(.horizontal, 13)
-            .foregroundStyle(active ? AtlasTheme.cyan : AtlasTheme.muted)
+            .foregroundStyle(active ? NeonCoreTheme.cyan : NeonCoreTheme.muted)
             .background(active || configuration.isPressed ? Color(red: 0.027, green: 0.035, blue: 0.063) : .clear)
             .overlay(alignment: .leading) {
                 Rectangle()
-                    .fill(AtlasTheme.cyan)
+                    .fill(NeonCoreTheme.cyan)
                     .frame(width: 3)
                     .opacity(active ? 1 : 0)
-                    .shadow(color: AtlasTheme.cyan.opacity(0.65), radius: 12)
+                    .shadow(color: NeonCoreTheme.cyan.opacity(0.65), radius: 12)
             }
-            .overlay(Rectangle().stroke(active ? AtlasTheme.lineBright : .clear, lineWidth: 1))
+            .overlay(Rectangle().stroke(active ? NeonCoreTheme.lineBright : .clear, lineWidth: 1))
     }
 }
 
@@ -1126,29 +1126,29 @@ private struct NeonPrimaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.custom(AtlasTheme.fontName, size: 13).weight(.bold))
+            .font(.custom(NeonCoreTheme.fontName, size: 13).weight(.bold))
             .textCase(.uppercase)
             .tracking(0.7)
             .padding(.horizontal, 16)
             .frame(minHeight: 42)
             .foregroundStyle(active ? .white : .black)
-            .background(active ? AtlasTheme.panel2 : AtlasTheme.cyan)
-            .overlay(Rectangle().stroke(AtlasTheme.cyan, lineWidth: 1))
-            .shadow(color: AtlasTheme.cyan.opacity(configuration.isPressed ? 0.16 : 0.28), radius: 14)
+            .background(active ? NeonCoreTheme.panel2 : NeonCoreTheme.cyan)
+            .overlay(Rectangle().stroke(NeonCoreTheme.cyan, lineWidth: 1))
+            .shadow(color: NeonCoreTheme.cyan.opacity(configuration.isPressed ? 0.16 : 0.28), radius: 14)
     }
 }
 
 private struct NeonSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.custom(AtlasTheme.fontName, size: 12).weight(.bold))
+            .font(.custom(NeonCoreTheme.fontName, size: 12).weight(.bold))
             .textCase(.uppercase)
             .tracking(0.6)
             .padding(.horizontal, 14)
             .frame(minHeight: 40)
-            .foregroundStyle(AtlasTheme.cyan)
-            .background(configuration.isPressed ? AtlasTheme.cyan.opacity(0.12) : AtlasTheme.panel2)
-            .overlay(Rectangle().stroke(AtlasTheme.lineBright, lineWidth: 1))
+            .foregroundStyle(NeonCoreTheme.cyan)
+            .background(configuration.isPressed ? NeonCoreTheme.cyan.opacity(0.12) : NeonCoreTheme.panel2)
+            .overlay(Rectangle().stroke(NeonCoreTheme.lineBright, lineWidth: 1))
     }
 }
 
@@ -1156,11 +1156,11 @@ private struct NeonTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .textFieldStyle(.plain)
-            .font(.custom(AtlasTheme.fontName, size: 14).weight(.semibold))
+            .font(.custom(NeonCoreTheme.fontName, size: 14).weight(.semibold))
             .padding(.horizontal, 12)
             .frame(height: 42)
-            .background(AtlasTheme.panel2)
-            .overlay(Rectangle().stroke(AtlasTheme.lineBright, lineWidth: 1))
+            .background(NeonCoreTheme.panel2)
+            .overlay(Rectangle().stroke(NeonCoreTheme.lineBright, lineWidth: 1))
     }
 }
 

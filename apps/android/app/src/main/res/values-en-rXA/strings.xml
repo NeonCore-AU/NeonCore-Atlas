@@ -15,6 +15,6 @@
     <string name="profiles_action_import_subscription">[Import subscription~~~~]</string>
     <string name="subscription_import_url_placeholder">[Subscription URL~~~~]</string>
     <string name="settings_language">[Language~~~~]</string>
-    <string name="accessibility_connect_button">[Connect or disconnect Atlas~~~~]</string>
+    <string name="accessibility_connect_button">[Connect or disconnect NeonCore~~~~]</string>
     <string name="tooltip_connect_button">[Toggle connection~~~~]</string>
 </resources>

@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <data name="app.name" xml:space="preserve"><value>[NeonCore Atlas~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="app.tagline" xml:space="preserve"><value>[Open-source advanced network client~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="nav.dashboard" xml:space="preserve"><value>[Dashboard~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="nav.nodes" xml:space="preserve"><value>[Nodes~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="nav.profiles" xml:space="preserve"><value>[Profiles~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="nav.routing" xml:space="preserve"><value>[Routing~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="nav.logs" xml:space="preserve"><value>[Logs~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="nav.settings" xml:space="preserve"><value>[Settings~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="connection.status.disconnected" xml:space="preserve"><value>[Disconnected~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="connection.action.connect" xml:space="preserve"><value>[Connect~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="connection.action.disconnect" xml:space="preserve"><value>[Disconnect~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="nodes.empty.title" xml:space="preserve"><value>[No nodes~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="nodes.empty.description" xml:space="preserve"><value>[Import a subscription or add a server manually to get started.~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="profiles.action.import_subscription" xml:space="preserve"><value>[Import subscription~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="subscription.import.url_placeholder" xml:space="preserve"><value>[Subscription URL~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="settings.language" xml:space="preserve"><value>[Language~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="accessibility.connect_button" xml:space="preserve"><value>[Connect or disconnect Atlas~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
-  <data name="tooltip.connect_button" xml:space="preserve"><value>[Toggle connection~~~~]</value><comment>Semantic Atlas localization key.</comment></data>
+  <data name="app.name" xml:space="preserve"><value>[NeonCore Atlas~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="app.tagline" xml:space="preserve"><value>[Open-source advanced network client~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="nav.dashboard" xml:space="preserve"><value>[Dashboard~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="nav.nodes" xml:space="preserve"><value>[Nodes~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="nav.profiles" xml:space="preserve"><value>[Profiles~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="nav.routing" xml:space="preserve"><value>[Routing~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="nav.logs" xml:space="preserve"><value>[Logs~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="nav.settings" xml:space="preserve"><value>[Settings~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="connection.status.disconnected" xml:space="preserve"><value>[Disconnected~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="connection.action.connect" xml:space="preserve"><value>[Connect~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="connection.action.disconnect" xml:space="preserve"><value>[Disconnect~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="nodes.empty.title" xml:space="preserve"><value>[No nodes~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="nodes.empty.description" xml:space="preserve"><value>[Import a subscription or add a server manually to get started.~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="profiles.action.import_subscription" xml:space="preserve"><value>[Import subscription~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="subscription.import.url_placeholder" xml:space="preserve"><value>[Subscription URL~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="settings.language" xml:space="preserve"><value>[Language~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="accessibility.connect_button" xml:space="preserve"><value>[Connect or disconnect NeonCore~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
+  <data name="tooltip.connect_button" xml:space="preserve"><value>[Toggle connection~~~~]</value><comment>Semantic NeonCore localization key.</comment></data>
 </root>

@@ -2,15 +2,15 @@
 
 NeonCore Atlas separates portable network-client logic from platform-specific UI and VPN/service adapters.
 
-## Atlas Core
+## NeonCore Core
 
 `neoncore-core` contains pure Rust data models and parsing stubs. It has no OS-specific code, which keeps it usable from desktop daemons, CLIs, mobile adapters, and future FFI bindings.
 
-## Atlas Engine
+## NeonCore Engine
 
 `neoncore-engine` defines the `Engine` trait and `EngineStatus`. The runtime target is the owned `neoncore-kernel` binary, with platform apps and daemons calling it through explicit session files and IPC.
 
-## Atlas API
+## NeonCore API
 
 `neoncore-api` defines JSON-serializable request and response types. It intentionally does not implement networking yet. The daemon, CLI, and GUIs can share a stable command vocabulary before IPC is chosen.
 

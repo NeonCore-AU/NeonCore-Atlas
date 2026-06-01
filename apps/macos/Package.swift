@@ -3,18 +3,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "AtlasMacApp",
+    name: "NeonCoreMacApp",
     defaultLocalization: "en-AU",
     platforms: [
         .macOS(.v15)
     ],
     products: [
-        .executable(name: "AtlasMacApp", targets: ["AtlasMacApp"])
+        .executable(name: "NeonCoreMacApp", targets: ["NeonCoreMacApp"])
     ],
     targets: [
         .executableTarget(
-            name: "AtlasMacApp",
-            path: "AtlasMacApp",
+            name: "NeonCoreMacApp",
+            path: "NeonCoreMacApp",
             resources: [
                 .process("Localizable.xcstrings"),
                 .process("Fonts")

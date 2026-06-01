@@ -69,5 +69,5 @@ settings:
   advanced: "Advanced"
 errors:
   generic: "Something went wrong"
-  daemon_unavailable: "Atlas service is not running"
+  daemon_unavailable: "NeonCore service is not running"
   permission_required: "Permission is required to continue"

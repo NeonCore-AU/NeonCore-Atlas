@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct AtlasApp: App {
+struct NeonCoreApp: App {
     var body: some Scene {
         WindowGroup { ContentView() }
     }
