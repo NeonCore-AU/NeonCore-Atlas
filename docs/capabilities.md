@@ -18,6 +18,17 @@ Routing rules match domains, domain suffixes, domain keywords, and CIDR ranges i
 
 The kernel resolver supports host overrides, system lookups, and IPv6 preference ordering. The portable model also represents remote DNS servers and parallel fastest-response mode; those remote resolver transports are not runtime kernel transports yet.
 
+## TUN and VPN
+
+The workspace includes first-pass packet-decision crates for system-level proxy clients:
+
+1. `neoncore-ip-stack` parses IPv4 and IPv6 packets and extracts TCP/UDP flow metadata.
+2. `neoncore-routing` applies IPv4/IPv6-aware routing rules to flow metadata.
+3. `neoncore-dns` detects DNS flows and identifies DNS queries for interception.
+4. `neoncore-tun` combines packet parsing, DNS interception, and routing into TCP/UDP forward/drop decisions.
+
+Platform device adapters are still separate follow-up work: iOS and macOS Network Extension, Android VPNService, Windows Wintun, and Linux tun/tap.
+
 ## Rewrites
 
 Rewrite rules are stored as enabled pattern/replacement pairs. They are data only in this scaffold; runtime request modification belongs in a future engine adapter with explicit user consent and platform policy review.

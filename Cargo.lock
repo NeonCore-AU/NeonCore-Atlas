@@ -308,12 +308,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "neoncore-dns"
+version = "0.1.0"
+dependencies = [
+ "neoncore-ip-stack",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "neoncore-engine"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "neoncore-core",
  "serde",
+]
+
+[[package]]
+name = "neoncore-ip-stack"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "thiserror",
 ]
 
 [[package]]
@@ -331,6 +348,26 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "neoncore-routing"
+version = "0.1.0"
+dependencies = [
+ "neoncore-ip-stack",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "neoncore-tun"
+version = "0.1.0"
+dependencies = [
+ "neoncore-dns",
+ "neoncore-ip-stack",
+ "neoncore-routing",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

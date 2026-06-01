@@ -8,6 +8,10 @@ members = [
     "crates/neoncore-cli",
     "crates/neoncore-updater",
     "crates/neoncore-kernel",
+    "crates/neoncore-ip-stack",
+    "crates/neoncore-routing",
+    "crates/neoncore-dns",
+    "crates/neoncore-tun",
 ]
 
 [workspace.package]
