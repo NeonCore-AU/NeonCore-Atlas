@@ -10,6 +10,7 @@ pub mod anytls;
 pub mod direct;
 pub mod http;
 pub mod hy2;
+mod reality;
 pub mod shadowsocks;
 pub mod vless;
 

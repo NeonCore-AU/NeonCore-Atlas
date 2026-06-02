@@ -12,16 +12,20 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
+aes-gcm = "0.10"
 async-trait = "0.1"
 anytls-rs = "0.5.4"
+base64 = "0.22"
 blake2 = "0.10"
 bytes = "1.11"
 clap.workspace = true
+hkdf = "0.12"
 hysteria2 = "0.1.6"
 native-tls = "0.2"
 rand = "0.8"
 serde.workspace = true
 serde_json.workspace = true
+sha2 = "0.10"
 shadowsocks = { version = "1.22.0", default-features = false, features = ["aead-cipher", "aead-cipher-2022", "aead-cipher-2022-extra"] }
 thiserror.workspace = true
 tokio = { version = "1.48", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
@@ -29,3 +33,4 @@ tokio-native-tls = "0.3"
 tokio-rustls = "0.26"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+x25519-dalek = { version = "2", features = ["static_secrets"] }
