@@ -37,7 +37,10 @@ pub enum VlessSecurity {
 #[async_trait::async_trait]
 impl OutboundAdapter for VlessAdapter {
     fn validate(node: &KernelNode) -> anyhow::Result<()> {
-        VlessConfig::from_node(node)?;
+        let config = VlessConfig::from_node(node)?;
+        if matches!(config.security, VlessSecurity::Reality { .. }) {
+            anyhow::bail!("VLESS REALITY transport requires the dedicated REALITY handshake");
+        }
         if node.parameter("type").unwrap_or("tcp") != "tcp" {
             anyhow::bail!("only VLESS TCP transport is available");
         }
@@ -50,6 +53,9 @@ impl OutboundAdapter for VlessAdapter {
         resolver: &DnsResolver,
     ) -> anyhow::Result<BoxedProxyStream> {
         let config = VlessConfig::from_node(node)?;
+        if matches!(config.security, VlessSecurity::Reality { .. }) {
+            anyhow::bail!("VLESS REALITY transport requires the dedicated REALITY handshake");
+        }
         if node.parameter("type").unwrap_or("tcp") != "tcp" {
             anyhow::bail!("only VLESS TCP transport is implemented");
         }

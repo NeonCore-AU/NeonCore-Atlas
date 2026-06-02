@@ -152,6 +152,8 @@ private final class NeonCoreStore: ObservableObject {
             activeNodeID = node.id
             log("log.connected")
         } catch {
+            engine.stop()
+            try? SystemProxy.disable()
             status = .disconnected
             log("log.protocol_adapter_missing", level: "warn")
         }
@@ -319,6 +321,9 @@ private final class NeonCoreKernel {
     private var configURL: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("neoncore-kernel-session.json")
     }
+    private var logURL: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("neoncore-kernel.log")
+    }
 
     var isAvailable: Bool {
         binaryURL != nil
@@ -333,10 +338,16 @@ private final class NeonCoreKernel {
         let process = Process()
         process.executableURL = binaryURL
         process.arguments = ["run", "--session", configURL.path]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        FileManager.default.createFile(atPath: logURL.path, contents: nil)
+        let logHandle = try FileHandle(forWritingTo: logURL)
+        process.standardOutput = logHandle
+        process.standardError = logHandle
         try process.run()
         self.process = process
+        guard waitForListener(port: port, timeout: 2.5), process.isRunning else {
+            stop()
+            throw NeonCoreError.engineMissing
+        }
     }
 
     func stop() {
@@ -386,6 +397,17 @@ private final class NeonCoreKernel {
         if process.terminationStatus != 0 {
             throw NeonCoreError.unsupportedProtocol
         }
+    }
+
+    private func waitForListener(port: Int, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if TCPProbe.syncCheck(host: "127.0.0.1", port: port, timeout: 0.25) {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        return false
     }
 }
 
@@ -462,17 +484,56 @@ private enum TCPProbe {
             }
         }
     }
+
+    static func syncCheck(host: String, port: Int, timeout: TimeInterval) -> Bool {
+        let semaphore = DispatchSemaphore(value: 0)
+        let state = ProbeState()
+        let connection = NWConnection(host: NWEndpoint.Host(host), port: NWEndpoint.Port(integerLiteral: UInt16(port)), using: .tcp)
+        connection.stateUpdateHandler = { connectionState in
+            switch connectionState {
+            case .ready:
+                if state.markFinished(success: true) {
+                    connection.cancel()
+                    semaphore.signal()
+                }
+            case .failed, .cancelled:
+                if state.markFinished(success: false) {
+                    connection.cancel()
+                    semaphore.signal()
+                }
+            default:
+                break
+            }
+        }
+        connection.start(queue: .global())
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+            if state.markFinished(success: false) {
+                connection.cancel()
+                semaphore.signal()
+            }
+        }
+        semaphore.wait()
+        return state.succeeded
+    }
 }
 
 private final class ProbeState: @unchecked Sendable {
     private let lock = NSLock()
     private var finished = false
+    private var success = false
 
-    func markFinished() -> Bool {
+    var succeeded: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return success
+    }
+
+    func markFinished(success: Bool = false) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard !finished else { return false }
         finished = true
+        self.success = success
         return true
     }
 }

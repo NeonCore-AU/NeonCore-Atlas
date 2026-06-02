@@ -43,6 +43,7 @@ struct KernelRuntime {
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
+    let _ = tokio_rustls::rustls::crypto::aws_lc_rs::default_provider().install_default();
     init_logging();
     let cli = Cli::parse();
     match cli.command {

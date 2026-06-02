@@ -13,7 +13,9 @@ path = "src/main.rs"
 [dependencies]
 anyhow.workspace = true
 async-trait = "0.1"
+anytls-rs = "0.5.4"
 blake2 = "0.10"
+bytes = "1.11"
 clap.workspace = true
 hysteria2 = "0.1.6"
 native-tls = "0.2"
@@ -24,5 +26,6 @@ shadowsocks = { version = "1.22.0", default-features = false, features = ["aead-
 thiserror.workspace = true
 tokio = { version = "1.48", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-native-tls = "0.3"
+tokio-rustls = "0.26"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
