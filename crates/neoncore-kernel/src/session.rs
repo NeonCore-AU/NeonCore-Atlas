@@ -73,12 +73,27 @@ pub enum KernelRouteAction {
     Reject,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KernelDnsConfig {
     #[serde(default)]
     pub hosts: Vec<KernelHostMapping>,
     #[serde(default)]
     pub prefer_ipv6: bool,
+    #[serde(default = "default_proxy_bootstrap_nameservers")]
+    pub proxy_bootstrap_nameservers: Vec<String>,
+    #[serde(default = "default_fake_ip_cidrs")]
+    pub fake_ip_cidrs: Vec<String>,
+}
+
+impl Default for KernelDnsConfig {
+    fn default() -> Self {
+        Self {
+            hosts: Vec::new(),
+            prefer_ipv6: false,
+            proxy_bootstrap_nameservers: default_proxy_bootstrap_nameservers(),
+            fake_ip_cidrs: default_fake_ip_cidrs(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,4 +116,16 @@ impl std::fmt::Display for TargetAddress {
 
 fn default_enabled() -> bool {
     true
+}
+
+fn default_proxy_bootstrap_nameservers() -> Vec<String> {
+    vec![
+        "https://1.1.1.1/dns-query".to_string(),
+        "https://1.0.0.1/dns-query".to_string(),
+        "https://8.8.8.8/resolve".to_string(),
+    ]
+}
+
+fn default_fake_ip_cidrs() -> Vec<String> {
+    vec!["198.18.0.0/15".to_string()]
 }

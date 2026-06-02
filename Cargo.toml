@@ -12,12 +12,13 @@ members = [
     "crates/neoncore-routing",
     "crates/neoncore-dns",
     "crates/neoncore-tun",
+    "crates/neoncore-tun2proxy",
 ]
 
 [workspace.package]
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/neoncore/neoncore-atlas"
+repository = "https://github.com/NeonCore-AU/NeonCore-Atlas"
 rust-version = "1.76"
 
 [workspace.dependencies]
@@ -28,4 +29,6 @@ serde_json = "1.0"
 thiserror = "1.0"
 
 [patch.crates-io]
+hysteria2 = { path = "vendor/hysteria2" }
 rustls = { path = "vendor/rustls" }
+quinn-proto = { path = "vendor/quinn-proto" }

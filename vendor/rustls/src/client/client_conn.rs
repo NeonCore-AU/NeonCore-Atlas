@@ -229,6 +229,21 @@ pub struct ClientConfig {
     /// Optional ClientHello session-id generator for REALITY-style authenticated handshakes.
     pub reality_session_id_generator: Option<Arc<dyn RealitySessionIdGenerator>>,
 
+    /// Optional ClientHello fingerprint profile used to control extension ordering.
+    pub client_hello_fingerprint_profile: Option<ClientHelloFingerprintProfile>,
+
+    /// Optional cipher suite order used for ClientHello fingerprint shaping.
+    pub client_hello_cipher_suites: Option<Vec<CipherSuite>>,
+
+    /// Optional supported group order used for ClientHello fingerprint shaping.
+    pub client_hello_supported_groups: Option<Vec<NamedGroup>>,
+
+    /// Optional signature scheme order used for ClientHello fingerprint shaping.
+    pub client_hello_signature_schemes: Option<Vec<SignatureScheme>>,
+
+    /// Optional GREASE value used in ClientHello fingerprint shaping.
+    pub client_hello_grease: Option<u16>,
+
     /// If set to `true`, requires the server to support the extended
     /// master secret extraction method defined in [RFC 7627].
     ///
@@ -290,6 +305,19 @@ pub struct ClientConfig {
 
     /// How to offer Encrypted Client Hello (ECH). The default is to not offer ECH.
     pub(super) ech_mode: Option<EchMode>,
+}
+
+/// Controls the ClientHello extension ordering profile used by a client config.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ClientHelloFingerprintProfile {
+    /// Use a Chrome-like extension ordering profile.
+    Chrome,
+    /// Use a Firefox-like extension ordering profile.
+    Firefox,
+    /// Use a Safari-like extension ordering profile.
+    Safari,
+    /// Use rustls randomized ordering while applying browser-compatible defaults.
+    Randomized,
 }
 
 /// Builds an authenticated ClientHello session id from the exact zero-session ClientHello bytes.

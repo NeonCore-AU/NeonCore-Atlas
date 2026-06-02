@@ -937,6 +937,9 @@ extension_struct! {
 
         /// Extensions that must appear contiguously.
         pub(crate) contiguous_extensions: Vec<ExtensionType>,
+
+        /// Optional GREASE extension type to encode with an empty payload.
+        pub(crate) grease_extension: Option<u16>,
     }
 }
 
@@ -968,6 +971,7 @@ impl ClientExtensions<'_> {
             encrypted_client_hello_outer,
             order_seed,
             contiguous_extensions,
+            grease_extension,
         } = self;
         ClientExtensions {
             server_name: server_name.map(|x| x.into_owned()),
@@ -995,11 +999,15 @@ impl ClientExtensions<'_> {
             encrypted_client_hello_outer,
             order_seed,
             contiguous_extensions,
+            grease_extension,
         }
     }
 
     pub(crate) fn used_extensions_in_encoding_order(&self) -> Vec<ExtensionType> {
         let mut exts = self.order_insensitive_extensions_in_random_order();
+        if let Some(grease) = self.grease_extension {
+            exts.push(ExtensionType::Unknown(grease));
+        }
         exts.extend(&self.contiguous_extensions);
 
         if self
@@ -1062,7 +1070,12 @@ impl<'a> Codec<'a> for ClientExtensions<'a> {
 
         let body = LengthPrefixedBuffer::new(ListLength::U16, bytes);
         for item in order {
-            self.encode_one(item, body.buf);
+            if self.grease_extension == Some(u16::from(item)) {
+                item.encode(body.buf);
+                let _grease_body = LengthPrefixedBuffer::new(ListLength::U16, body.buf);
+            } else {
+                self.encode_one(item, body.buf);
+            }
         }
     }
 

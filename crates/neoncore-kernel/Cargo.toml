@@ -19,18 +19,29 @@ base64 = "0.22"
 blake2 = "0.10"
 bytes = "1.11"
 clap.workspace = true
+futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+h3 = "0.0.8"
+h3-quinn = "0.0.10"
+h2 = "0.4"
 hkdf = "0.12"
+http = "1.3"
 hysteria2 = "0.1.6"
-native-tls = "0.2"
+md5 = "0.8"
+native-tls = { version = "0.2", features = ["alpn"] }
 rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls-aws-lc-rs"] }
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
 shadowsocks = { version = "1.22.0", default-features = false, features = ["aead-cipher", "aead-cipher-2022", "aead-cipher-2022-extra"] }
+socket2 = "0.6"
 thiserror.workspace = true
 tokio = { version = "1.48", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-native-tls = "0.3"
 tokio-rustls = "0.26"
+tokio-tungstenite = "0.28"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+webpki-roots = "1.0"
 x25519-dalek = { version = "2", features = ["static_secrets"] }

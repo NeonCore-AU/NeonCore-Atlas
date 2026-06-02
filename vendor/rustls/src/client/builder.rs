@@ -179,6 +179,11 @@ impl ConfigBuilder<ClientConfig, WantsClientCert> {
             enable_secret_extraction: false,
             enable_early_data: false,
             reality_session_id_generator: None,
+            client_hello_fingerprint_profile: None,
+            client_hello_cipher_suites: None,
+            client_hello_supported_groups: None,
+            client_hello_signature_schemes: None,
+            client_hello_grease: None,
             #[cfg(feature = "tls12")]
             require_ems,
             time_provider: self.time_provider,

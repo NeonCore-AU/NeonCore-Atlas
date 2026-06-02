@@ -16,7 +16,7 @@ use crate::check::inappropriate_handshake_message;
 use crate::client::client_conn::ClientConnectionData;
 use crate::client::common::ClientHelloDetails;
 use crate::client::ech::EchState;
-use crate::client::{ClientConfig, EchMode, EchStatus, tls13};
+use crate::client::{ClientConfig, ClientHelloFingerprintProfile, EchMode, EchStatus, tls13};
 use crate::common_state::{CommonState, HandshakeKind, KxState, State};
 use crate::conn::ConnectionRandoms;
 use crate::crypto::{ActiveKeyExchange, KeyExchangeAlgorithm};
@@ -181,6 +181,52 @@ impl ClientHelloInput {
     }
 }
 
+fn client_hello_profile_extensions(profile: ClientHelloFingerprintProfile) -> Vec<ExtensionType> {
+    match profile {
+        ClientHelloFingerprintProfile::Chrome | ClientHelloFingerprintProfile::Randomized => vec![
+            ExtensionType::ServerName,
+            ExtensionType::ExtendedMasterSecret,
+            ExtensionType::RenegotiationInfo,
+            ExtensionType::EllipticCurves,
+            ExtensionType::ECPointFormats,
+            ExtensionType::SessionTicket,
+            ExtensionType::ALProtocolNegotiation,
+            ExtensionType::StatusRequest,
+            ExtensionType::SignatureAlgorithms,
+            ExtensionType::SupportedVersions,
+            ExtensionType::PSKKeyExchangeModes,
+            ExtensionType::KeyShare,
+        ],
+        ClientHelloFingerprintProfile::Firefox => vec![
+            ExtensionType::ServerName,
+            ExtensionType::ExtendedMasterSecret,
+            ExtensionType::RenegotiationInfo,
+            ExtensionType::EllipticCurves,
+            ExtensionType::ECPointFormats,
+            ExtensionType::SessionTicket,
+            ExtensionType::ALProtocolNegotiation,
+            ExtensionType::StatusRequest,
+            ExtensionType::SignatureAlgorithms,
+            ExtensionType::SupportedVersions,
+            ExtensionType::KeyShare,
+            ExtensionType::PSKKeyExchangeModes,
+        ],
+        ClientHelloFingerprintProfile::Safari => vec![
+            ExtensionType::ServerName,
+            ExtensionType::ExtendedMasterSecret,
+            ExtensionType::RenegotiationInfo,
+            ExtensionType::EllipticCurves,
+            ExtensionType::ECPointFormats,
+            ExtensionType::SignatureAlgorithms,
+            ExtensionType::StatusRequest,
+            ExtensionType::ALProtocolNegotiation,
+            ExtensionType::SupportedVersions,
+            ExtensionType::PSKKeyExchangeModes,
+            ExtensionType::KeyShare,
+        ],
+    }
+}
+
 /// Emits the initial ClientHello or a ClientHello in response to
 /// a HelloRetryRequest.
 ///
@@ -212,19 +258,26 @@ fn emit_client_hello_for_retry(
     let mut exts = Box::new(ClientExtensions {
         // offer groups which are usable for any offered version
         named_groups: Some(
-            config
-                .provider
-                .kx_groups
-                .iter()
-                .filter(|skxg| supported_versions.any(|v| skxg.usable_for_version(v)))
-                .map(|skxg| skxg.name())
-                .collect(),
+            config.client_hello_supported_groups.clone().unwrap_or_else(|| {
+                config
+                    .provider
+                    .kx_groups
+                    .iter()
+                    .filter(|skxg| supported_versions.any(|v| skxg.usable_for_version(v)))
+                    .map(|skxg| skxg.name())
+                    .collect()
+            }),
         ),
         supported_versions: Some(supported_versions),
         signature_schemes: Some(
             config
+                .client_hello_signature_schemes
+                .clone()
+                .unwrap_or_else(|| {
+                    config
                 .verifier
-                .supported_verify_schemes(),
+                            .supported_verify_schemes()
+                }),
         ),
         extended_master_secret_request: Some(()),
         certificate_status_request: Some(CertificateStatusRequest::build_ocsp()),
@@ -356,16 +409,22 @@ fn emit_client_hello_for_retry(
     // Extensions MAY be randomized
     // but they also need to keep the same order as the previous ClientHello
     exts.order_seed = input.hello.extension_order_seed;
+    if let Some(profile) = config.client_hello_fingerprint_profile {
+        exts.contiguous_extensions = client_hello_profile_extensions(profile);
+    }
+    exts.grease_extension = config.client_hello_grease;
 
-    let mut cipher_suites: Vec<_> = config
-        .provider
-        .cipher_suites
-        .iter()
-        .filter_map(|cs| match cs.usable_for_protocol(cx.common.protocol) {
-            true => Some(cs.suite()),
-            false => None,
-        })
-        .collect();
+    let mut cipher_suites: Vec<_> = config.client_hello_cipher_suites.clone().unwrap_or_else(|| {
+        config
+            .provider
+            .cipher_suites
+            .iter()
+            .filter_map(|cs| match cs.usable_for_protocol(cx.common.protocol) {
+                true => Some(cs.suite()),
+                false => None,
+            })
+            .collect()
+    });
 
     if supported_versions.tls12 {
         // We don't do renegotiation at all, in fact.

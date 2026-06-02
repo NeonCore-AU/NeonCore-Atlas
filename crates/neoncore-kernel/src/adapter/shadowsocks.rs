@@ -1,6 +1,7 @@
 use crate::{
-    adapter::{boxed_stream, BoxedProxyStream, OutboundAdapter},
-    dns::DnsResolver,
+    adapter::{
+        boxed_stream, BoxedProxyStream, NetworkCapability, OutboundAdapter, OutboundContext,
+    },
     session::{KernelNode, TargetAddress},
 };
 use shadowsocks::{
@@ -16,22 +17,37 @@ pub struct ShadowsocksAdapter;
 
 #[async_trait::async_trait]
 impl OutboundAdapter for ShadowsocksAdapter {
-    fn validate(node: &KernelNode) -> anyhow::Result<()> {
+    fn protocol_names(&self) -> &'static [&'static str] {
+        &["ss", "shadowsocks"]
+    }
+
+    fn networks(&self) -> &'static [NetworkCapability] {
+        &[NetworkCapability::Tcp, NetworkCapability::Udp]
+    }
+
+    fn validate(&self, node: &KernelNode) -> anyhow::Result<()> {
         ShadowsocksConfig::from_node(node)?;
         Ok(())
     }
 
     async fn connect(
+        &self,
         node: &KernelNode,
         target: &TargetAddress,
-        _resolver: &DnsResolver,
+        context: &OutboundContext<'_>,
     ) -> anyhow::Result<BoxedProxyStream> {
         let config = ShadowsocksConfig::from_node(node)?;
-        let server = ServerConfig::new(
-            (config.server, config.server_port),
-            config.password,
-            config.method,
-        )?;
+        let resolved = context
+            .resolver
+            .resolve_proxy_server(&TargetAddress {
+                host: config.server.clone(),
+                port: config.server_port,
+            })
+            .await?;
+        let address = *resolved
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("no usable resolved address for Shadowsocks server"))?;
+        let server = ServerConfig::new(address, config.password, config.method)?;
         let context = Context::new_shared(ServerType::Local);
         let stream = ProxyClientStream::connect(context, &server, target_address(target)).await?;
         Ok(boxed_stream(stream))
@@ -94,7 +110,7 @@ mod tests {
             }),
         };
 
-        ShadowsocksAdapter::validate(&node).unwrap();
+        ShadowsocksAdapter.validate(&node).unwrap();
     }
 
     #[test]
@@ -110,6 +126,6 @@ mod tests {
             }),
         };
 
-        ShadowsocksAdapter::validate(&node).unwrap();
+        ShadowsocksAdapter.validate(&node).unwrap();
     }
 }

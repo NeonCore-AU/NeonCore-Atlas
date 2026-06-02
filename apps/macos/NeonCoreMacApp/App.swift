@@ -7,6 +7,7 @@ import SwiftUI
 struct NeonCoreMacApp: App {
     init() {
         NeonCoreFont.register()
+        AppRuntime.writeBuildMarker()
     }
 
     var body: some Scene {
@@ -52,7 +53,9 @@ private final class NeonCoreStore: ObservableObject {
     @Published var selectedPage: NeonCorePage = .dashboard
     @Published var status: ConnectionStatus = .disconnected
     @Published var activeNodeID: UUID?
-    @Published var subscriptionURL = ""
+    @Published var subscriptionURL = "" {
+        didSet { PersistedStore.saveSubscriptionURL(subscriptionURL) }
+    }
     @Published var routingMode = "Rule"
     @Published var dnsMode = "System"
     @Published var preferIPv6 = false
@@ -61,15 +64,26 @@ private final class NeonCoreStore: ObservableObject {
     @Published var directBytesIn = 0
     @Published var directBytesOut = 0
     @Published var lastLatencyRun = "--"
-    @Published var localProxyPort = 7890
+    @Published var localProxyPort = 19091
     @Published var logs: [NeonCoreLog] = [
         .init(level: "info", messageKey: "log.app_ready"),
     ]
-    @Published var nodes: [NeonCoreNode] = []
-    @Published var profiles: [NeonCoreProfile] = []
+    @Published var nodes: [NeonCoreNode] = [] {
+        didSet { PersistedStore.saveNodes(nodes) }
+    }
+    @Published var profiles: [NeonCoreProfile] = [] {
+        didSet { PersistedStore.saveProfiles(profiles) }
+    }
     @Published var rules: [NeonCoreRule] = []
 
     private let engine = NeonCoreKernel()
+
+    init() {
+        subscriptionURL = PersistedStore.loadSubscriptionURL()
+        nodes = PersistedStore.loadNodes()
+        profiles = PersistedStore.loadProfiles()
+        activeNodeID = nodes.first?.id
+    }
 
     var activeNode: NeonCoreNode? {
         nodes.first { $0.id == activeNodeID } ?? nodes.first
@@ -145,17 +159,45 @@ private final class NeonCoreStore: ObservableObject {
             log("nodes.empty.title", level: "warn")
             return
         }
+        guard node.hasRequiredCredentials else {
+            AppRuntime.appendDiagnostic("connection rejected before kernel start: missing credentials for \(node.protocolName) \(node.endpoint)")
+            log("log.engine_start_failed", level: "warn")
+            return
+        }
         do {
-            try engine.start(node: node, port: localProxyPort)
+            try engine.start(node: node, port: localProxyPort, fullTunnel: true)
+            guard ProxyProbe.httpConnect(port: localProxyPort, timeout: 30) else {
+                AppRuntime.appendDiagnostic("proxy preflight failed for \(node.protocolName) \(node.endpoint)")
+                throw NeonCoreError.proxyPreflightFailed
+            }
             try SystemProxy.enable(port: localProxyPort)
             status = .connected
             activeNodeID = node.id
             log("log.connected")
         } catch {
-            engine.stop()
+            AppRuntime.appendDiagnostic("connection failed for \(node.protocolName) \(node.endpoint): \(error)")
             try? SystemProxy.disable()
+            engine.stop()
             status = .disconnected
-            log("log.protocol_adapter_missing", level: "warn")
+            log(logKey(for: error), level: "warn")
+        }
+    }
+
+    private func logKey(for error: Error) -> String {
+        guard let error = error as? NeonCoreError else {
+            return "log.engine_start_failed"
+        }
+        switch error {
+        case .engineMissing:
+            return "log.engine_missing"
+        case .unsupportedProtocol:
+            return "log.protocol_adapter_missing"
+        case .kernelCheckFailed, .listenerUnavailable:
+            return "log.engine_start_failed"
+        case .proxyPreflightFailed:
+            return "log.proxy_preflight_failed"
+        case .invalidURL, .subscriptionFailed, .systemProxyFailed, .tunBridgeMissing, .tunBridgeFailed, .tunRouteConflict:
+            return "log.engine_start_failed"
         }
     }
 
@@ -165,10 +207,11 @@ private final class NeonCoreStore: ObservableObject {
         status = .disconnected
         log("log.disconnected")
     }
+
 }
 
-private struct NeonCoreNode: Identifiable {
-    let id = UUID()
+private struct NeonCoreNode: Identifiable, Codable {
+    var id = UUID()
     var name: String
     var region: String
     var host: String
@@ -182,16 +225,23 @@ private struct NeonCoreNode: Identifiable {
     var endpoint: String {
         "\(host):\(port)"
     }
+
+    var hasRequiredCredentials: Bool {
+        if protocolName == "hysteria2" || protocolName == "hy2" {
+            return !userID.isEmpty
+        }
+        return true
+    }
 }
 
-private struct NeonCoreProfile: Identifiable {
-    let id = UUID()
+private struct NeonCoreProfile: Identifiable, Codable {
+    var id = UUID()
     var name: String
     var detail: String
 }
 
-private struct NeonCoreRule: Identifiable {
-    let id = UUID()
+private struct NeonCoreRule: Identifiable, Codable {
+    var id = UUID()
     var name: String
     var matcher: String
     var action: String
@@ -203,6 +253,94 @@ private struct NeonCoreLog: Identifiable {
     let time = Date.now
     var level: String
     var messageKey: String
+}
+
+private struct ResolvedServer {
+    var originalHost: String
+    var connectHost: String
+}
+
+private struct KernelResolvedServerOutput: Decodable {
+    var server: String
+    var serverPort: Int
+    var addresses: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case server
+        case serverPort = "server_port"
+        case addresses
+    }
+}
+
+private enum AppRuntime {
+    private static let runtimeDirectory = URL(fileURLWithPath: "/tmp/neoncore-atlas", isDirectory: true)
+
+    static func writeBuildMarker() {
+        try? FileManager.default.createDirectory(at: runtimeDirectory, withIntermediateDirectories: true)
+        let marker = """
+        build=2026-06-02T16:56:00Z
+        port=19091
+        runtime=/tmp/neoncore-atlas
+        hy2_auth=required_user_password
+        """
+        try? marker.write(to: runtimeDirectory.appendingPathComponent("app-build.txt"), atomically: true, encoding: .utf8)
+    }
+
+    static func appendDiagnostic(_ message: String) {
+        try? FileManager.default.createDirectory(at: runtimeDirectory, withIntermediateDirectories: true)
+        let line = "\(Date()) \(message)\n"
+        let url = runtimeDirectory.appendingPathComponent("app-diagnostics.log")
+        if FileManager.default.fileExists(atPath: url.path),
+           let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            if let data = line.data(using: .utf8) {
+                try? handle.write(contentsOf: data)
+            }
+        } else {
+            try? line.write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+}
+
+private enum PersistedStore {
+    private static let subscriptionKey = "neoncore.subscriptionURL"
+    private static let nodesKey = "neoncore.nodes"
+    private static let profilesKey = "neoncore.profiles"
+
+    static func loadSubscriptionURL() -> String {
+        UserDefaults.standard.string(forKey: subscriptionKey) ?? ""
+    }
+
+    static func saveSubscriptionURL(_ value: String) {
+        UserDefaults.standard.set(value, forKey: subscriptionKey)
+    }
+
+    static func loadNodes() -> [NeonCoreNode] {
+        load([NeonCoreNode].self, key: nodesKey) ?? []
+    }
+
+    static func saveNodes(_ value: [NeonCoreNode]) {
+        save(value, key: nodesKey)
+    }
+
+    static func loadProfiles() -> [NeonCoreProfile] {
+        load([NeonCoreProfile].self, key: profilesKey) ?? []
+    }
+
+    static func saveProfiles(_ value: [NeonCoreProfile]) {
+        save(value, key: profilesKey)
+    }
+
+    private static func load<T: Decodable>(_ type: T.Type, key: String) -> T? {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
+    }
+
+    private static func save<T: Encodable>(_ value: T, key: String) {
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        UserDefaults.standard.set(data, forKey: key)
+    }
 }
 
 private enum SubscriptionParser {
@@ -242,7 +380,17 @@ private enum SubscriptionParser {
               let port = components.port
         else { return nil }
 
-        let userID = components.user ?? ""
+        let userID: String
+        if scheme == "hysteria2" || scheme == "hy2" {
+            let user = components.percentEncodedUser?.removingPercentEncoding ?? components.user ?? ""
+            if let password = components.percentEncodedPassword?.removingPercentEncoding ?? components.password, !password.isEmpty {
+                userID = "\(user):\(password)"
+            } else {
+                userID = user
+            }
+        } else {
+            userID = components.user ?? ""
+        }
         let query = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
             item.value.map { (item.name, $0) }
         })
@@ -307,34 +455,44 @@ private enum SubscriptionParser {
     }
 
     private static func region(from name: String) -> String {
-        if name.contains("澳大利亚") { return "AU" }
-        if name.contains("美国") { return "US" }
-        if name.contains("日本") { return "JP" }
-        if name.contains("香港") { return "HK" }
-        if name.contains("新加坡") { return "SG" }
+        let uppercased = name.uppercased()
+        if uppercased.contains("🇦🇺") || uppercased.contains(" AU ") || uppercased.contains("[AU]") { return "AU" }
+        if uppercased.contains("🇺🇸") || uppercased.contains(" US ") || uppercased.contains("[US]") { return "US" }
+        if uppercased.contains("🇯🇵") || uppercased.contains(" JP ") || uppercased.contains("[JP]") { return "JP" }
+        if uppercased.contains("🇭🇰") || uppercased.contains(" HK ") || uppercased.contains("[HK]") { return "HK" }
+        if uppercased.contains("🇸🇬") || uppercased.contains(" SG ") || uppercased.contains("[SG]") { return "SG" }
         return "GLOBAL"
     }
 }
 
 private final class NeonCoreKernel {
     private var process: Process?
+    private var tunProcess: Process?
     private var configURL: URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("neoncore-kernel-session.json")
+        runtimeDirectory.appendingPathComponent("neoncore-kernel-session.json")
     }
     private var logURL: URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("neoncore-kernel.log")
+        runtimeDirectory.appendingPathComponent("neoncore-kernel.log")
+    }
+    private var tunLogURL: URL {
+        runtimeDirectory.appendingPathComponent("neoncore-tun2proxy.log")
+    }
+    private var runtimeDirectory: URL {
+        URL(fileURLWithPath: "/tmp/neoncore-atlas", isDirectory: true)
     }
 
     var isAvailable: Bool {
         binaryURL != nil
     }
 
-    func start(node: NeonCoreNode, port: Int) throws {
+    func start(node: NeonCoreNode, port: Int, fullTunnel: Bool) throws {
         stop()
         guard let binaryURL else { throw NeonCoreError.engineMissing }
+        try FileManager.default.createDirectory(at: runtimeDirectory, withIntermediateDirectories: true)
         let session = try makeSession(node: node, port: port)
         try session.write(to: configURL)
         try checkSession(binaryURL: binaryURL)
+        let resolvedServer = try resolveServer(binaryURL: binaryURL, node: node)
         let process = Process()
         process.executableURL = binaryURL
         process.arguments = ["run", "--session", configURL.path]
@@ -344,25 +502,109 @@ private final class NeonCoreKernel {
         process.standardError = logHandle
         try process.run()
         self.process = process
-        guard waitForListener(port: port, timeout: 2.5), process.isRunning else {
+        guard waitForListener(port: port, timeout: 8.0), process.isRunning else {
             stop()
-            throw NeonCoreError.engineMissing
+            throw NeonCoreError.listenerUnavailable
+        }
+        if fullTunnel {
+            do {
+                try startTunBridge(node: node, port: port, resolvedServer: resolvedServer)
+            } catch {
+                AppRuntime.appendDiagnostic("TUN bridge unavailable; continuing in system proxy mode: \(error)")
+            }
         }
     }
 
     func stop() {
+        tunProcess?.terminate()
+        tunProcess = nil
         process?.terminate()
         process = nil
     }
 
     private var binaryURL: URL? {
+        let release = URL(fileURLWithPath: "/Users/neoncore/NeonCore Dev/neoncore-atlas/target/release/neoncore-kernel")
+        if FileManager.default.isExecutableFile(atPath: release.path) {
+            return release
+        }
         let bundleURL = Bundle.main.resourceURL?.appendingPathComponent("neoncore-kernel")
         if let bundleURL, FileManager.default.isExecutableFile(atPath: bundleURL.path) {
             return bundleURL
         }
-        let local = URL(fileURLWithPath: "/Users/neoncore/NeonCore Dev/neoncore-atlas/target/debug/neoncore-kernel")
-        if FileManager.default.isExecutableFile(atPath: local.path) {
-            return local
+        let debug = URL(fileURLWithPath: "/Users/neoncore/NeonCore Dev/neoncore-atlas/target/debug/neoncore-kernel")
+        if FileManager.default.isExecutableFile(atPath: debug.path) {
+            return debug
+        }
+        return nil
+    }
+
+    private var tunBinaryURL: URL? {
+        let bundleURL = Bundle.main.resourceURL?.appendingPathComponent("neoncore-tun2proxy")
+        if let bundleURL, FileManager.default.isExecutableFile(atPath: bundleURL.path) {
+            return bundleURL
+        }
+        let release = URL(fileURLWithPath: "/Users/neoncore/NeonCore Dev/neoncore-atlas/target/release/neoncore-tun2proxy")
+        if FileManager.default.isExecutableFile(atPath: release.path) {
+            return release
+        }
+        let debug = URL(fileURLWithPath: "/Users/neoncore/NeonCore Dev/neoncore-atlas/target/debug/neoncore-tun2proxy")
+        if FileManager.default.isExecutableFile(atPath: debug.path) {
+            return debug
+        }
+        return nil
+    }
+
+    private func startTunBridge(node: NeonCoreNode, port: Int, resolvedServer: ResolvedServer) throws {
+        if SystemTunnel.hasForeignDefaultTunnel() {
+            return
+        }
+        guard let tunBinaryURL else { throw NeonCoreError.tunBridgeMissing }
+        let process = Process()
+        process.executableURL = tunBinaryURL
+        process.arguments = tunArguments(node: node, port: port, resolvedServer: resolvedServer)
+        FileManager.default.createFile(atPath: tunLogURL.path, contents: nil)
+        let logHandle = try FileHandle(forWritingTo: tunLogURL)
+        process.standardOutput = logHandle
+        process.standardError = logHandle
+        try process.run()
+        tunProcess = process
+        Thread.sleep(forTimeInterval: 1.0)
+        guard process.isRunning else {
+            tunProcess = nil
+            if let tail = tailLog(url: tunLogURL), !tail.isEmpty {
+                AppRuntime.appendDiagnostic("TUN bridge exited during startup: \(tail)")
+            }
+            throw NeonCoreError.tunBridgeFailed
+        }
+    }
+
+    private func tailLog(url: URL, limit: Int = 2048) -> String? {
+        guard let data = try? Data(contentsOf: url), !data.isEmpty else { return nil }
+        let suffix = data.count > limit ? data.suffix(limit) : data[...]
+        return String(decoding: suffix, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func tunArguments(node: NeonCoreNode, port: Int, resolvedServer: ResolvedServer) -> [String] {
+        var arguments = [
+            "--proxy-port", "\(port)",
+            "--setup-routes",
+            "--ipv6",
+            "--dns", "over-tcp",
+            "--mtu", "1500",
+            "--max-sessions", "1024"
+        ]
+        if let bypass = bypassCIDR(for: resolvedServer.connectHost) {
+            arguments.append(contentsOf: ["--bypass", bypass])
+        }
+        return arguments
+    }
+
+    private func bypassCIDR(for host: String) -> String? {
+        if IPv4Address(host) != nil {
+            return "\(host)/32"
+        }
+        if IPv6Address(host) != nil {
+            return "\(host)/128"
         }
         return nil
     }
@@ -377,7 +619,7 @@ private final class NeonCoreKernel {
     }
 
     private func makeKernelNode(node: NeonCoreNode) -> [String: Any] {
-        [
+        return [
             "protocol": node.protocolName,
             "server": node.host,
             "server_port": node.port,
@@ -386,16 +628,68 @@ private final class NeonCoreKernel {
         ]
     }
 
+    private func resolveServer(binaryURL: URL, node: NeonCoreNode) throws -> ResolvedServer {
+        let process = Process()
+        process.executableURL = binaryURL
+        process.arguments = ["resolve-server", "--session", configURL.path]
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+        try process.run()
+        process.waitUntilExit()
+        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let errorOutput = String(decoding: errorPipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if process.terminationStatus != 0 {
+            let output = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            AppRuntime.appendDiagnostic("kernel resolve-server failed: \(output)")
+            if !errorOutput.isEmpty {
+                AppRuntime.appendDiagnostic("kernel resolve-server stderr: \(errorOutput)")
+            }
+            return ResolvedServer(originalHost: node.host, connectHost: node.host)
+        }
+        guard let output = try? JSONDecoder().decode(KernelResolvedServerOutput.self, from: data),
+              let address = output.addresses.first
+        else {
+            AppRuntime.appendDiagnostic("kernel resolve-server returned no usable address")
+            if !errorOutput.isEmpty {
+                AppRuntime.appendDiagnostic("kernel resolve-server stderr: \(errorOutput)")
+            }
+            return ResolvedServer(originalHost: node.host, connectHost: node.host)
+        }
+        AppRuntime.appendDiagnostic("kernel resolved server \(output.server):\(output.serverPort) -> \(address)")
+        return ResolvedServer(originalHost: output.server, connectHost: address)
+    }
+
     private func checkSession(binaryURL: URL) throws {
         let process = Process()
         process.executableURL = binaryURL
         process.arguments = ["check", "--session", configURL.path]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
         try process.run()
         process.waitUntilExit()
+        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         if process.terminationStatus != 0 {
-            throw NeonCoreError.unsupportedProtocol
+            writeKernelDiagnostic(output)
+            if output.lowercased().contains("unsupported protocol") {
+                throw NeonCoreError.unsupportedProtocol
+            }
+            throw NeonCoreError.kernelCheckFailed
+        }
+    }
+
+    private func writeKernelDiagnostic(_ message: String) {
+        let diagnostic = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !diagnostic.isEmpty else { return }
+        FileManager.default.createFile(atPath: logURL.path, contents: nil)
+        guard let handle = try? FileHandle(forWritingTo: logURL) else { return }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        if let data = "kernel check failed: \(diagnostic)\n".data(using: .utf8) {
+            try? handle.write(contentsOf: data)
         }
     }
 
@@ -411,9 +705,42 @@ private final class NeonCoreKernel {
     }
 }
 
+private enum SystemTunnel {
+    static func hasForeignDefaultTunnel() -> Bool {
+        guard let output = try? capture("/bin/sh", ["-c", "netstat -rn -f inet | awk '$1 == \"1\" || $1 == \"128.0/1\" || $1 == \"0/1\" { print }'"]) else {
+            return false
+        }
+        return output.split(whereSeparator: \.isNewline).contains { line in
+            line.contains("utun")
+        }
+    }
+
+    private static func capture(_ executable: String, _ arguments: [String]) throws -> String {
+        let pipe = Pipe()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+        process.standardOutput = pipe
+        try process.run()
+        process.waitUntilExit()
+        return String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    }
+}
+
+@MainActor
 private enum SystemProxy {
+    private static var previousStates: [String: ProxyState] = [:]
+    private static var managedServices: [String] = []
+
     static func enable(port: Int) throws {
-        for service in try activeServices() {
+        let services = try activeServices()
+        if previousStates.isEmpty {
+            previousStates = try Dictionary(uniqueKeysWithValues: services.map { service in
+                (service, try captureState(service: service))
+            })
+            managedServices = services
+        }
+        for service in services {
             try run("/usr/sbin/networksetup", ["-setsocksfirewallproxy", service, "127.0.0.1", "\(port)"])
             try run("/usr/sbin/networksetup", ["-setsocksfirewallproxystate", service, "on"])
             try run("/usr/sbin/networksetup", ["-setwebproxy", service, "127.0.0.1", "\(port)"])
@@ -424,20 +751,74 @@ private enum SystemProxy {
     }
 
     static func disable() throws {
-        for service in try activeServices() {
-            try run("/usr/sbin/networksetup", ["-setsocksfirewallproxystate", service, "off"])
-            try run("/usr/sbin/networksetup", ["-setwebproxystate", service, "off"])
-            try run("/usr/sbin/networksetup", ["-setsecurewebproxystate", service, "off"])
+        if previousStates.isEmpty {
+            for service in managedServices.isEmpty ? try activeServices() : managedServices {
+                try run("/usr/sbin/networksetup", ["-setsocksfirewallproxystate", service, "off"])
+                try run("/usr/sbin/networksetup", ["-setwebproxystate", service, "off"])
+                try run("/usr/sbin/networksetup", ["-setsecurewebproxystate", service, "off"])
+            }
+            managedServices.removeAll()
+            return
         }
+        for (service, state) in previousStates {
+            try restore(proxy: state.socks, service: service, kind: .socks)
+            try restore(proxy: state.http, service: service, kind: .http)
+            try restore(proxy: state.https, service: service, kind: .https)
+        }
+        previousStates.removeAll()
+        managedServices.removeAll()
     }
 
     private static func activeServices() throws -> [String] {
+        let defaultInterface = try defaultRouteInterface()
         let output = try capture("/usr/sbin/networksetup", ["-listallnetworkservices"])
         let services = output
             .split(whereSeparator: \.isNewline)
             .map(String.init)
             .filter { !$0.hasPrefix("An asterisk") && !$0.hasPrefix("*") }
-        return services.isEmpty ? ["Wi-Fi"] : services
+        if let defaultInterface,
+           let service = try serviceName(for: defaultInterface),
+           services.contains(service) {
+            return [service]
+        }
+        if services.contains("Wi-Fi") {
+            return ["Wi-Fi"]
+        }
+        return services.isEmpty ? ["Wi-Fi"] : [services[0]]
+    }
+
+    private static func defaultRouteInterface() throws -> String? {
+        let output = try capture("/sbin/route", ["-n", "get", "default"])
+        for line in output.split(whereSeparator: \.isNewline).map(String.init) {
+            let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2, parts[0] == "interface" {
+                return parts[1]
+            }
+        }
+        return nil
+    }
+
+    private static func serviceName(for device: String) throws -> String? {
+        let output = try capture("/usr/sbin/networksetup", ["-listnetworkserviceorder"])
+        var currentService: String?
+        for line in output.split(whereSeparator: \.isNewline).map(String.init) {
+            if let service = parseServiceName(line) {
+                currentService = service
+                continue
+            }
+            if line.contains("Device: \(device)") {
+                return currentService
+            }
+        }
+        return nil
+    }
+
+    private static func parseServiceName(_ line: String) -> String? {
+        guard line.hasPrefix("("),
+              let close = line.firstIndex(of: ")")
+        else { return nil }
+        let name = line[line.index(after: close)...].trimmingCharacters(in: .whitespaces)
+        return name.isEmpty ? nil : name
     }
 
     private static func run(_ executable: String, _ arguments: [String]) throws {
@@ -458,6 +839,79 @@ private enum SystemProxy {
         try process.run()
         process.waitUntilExit()
         return String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    }
+
+    private static func captureState(service: String) throws -> ProxyState {
+        ProxyState(
+            socks: parseProxy(try capture("/usr/sbin/networksetup", ["-getsocksfirewallproxy", service])),
+            http: parseProxy(try capture("/usr/sbin/networksetup", ["-getwebproxy", service])),
+            https: parseProxy(try capture("/usr/sbin/networksetup", ["-getsecurewebproxy", service]))
+        )
+    }
+
+    private static func parseProxy(_ output: String) -> ProxyEndpoint {
+        var enabled = false
+        var server = "127.0.0.1"
+        var port = 0
+        for line in output.split(whereSeparator: \.isNewline).map(String.init) {
+            let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            guard parts.count == 2 else { continue }
+            switch parts[0] {
+            case "Enabled": enabled = parts[1].lowercased() == "yes"
+            case "Server": server = parts[1]
+            case "Port": port = Int(parts[1]) ?? 0
+            default: break
+            }
+        }
+        return ProxyEndpoint(enabled: enabled, server: server, port: port)
+    }
+
+    private static func restore(proxy: ProxyEndpoint, service: String, kind: ProxyKind) throws {
+        if proxy.port > 0 {
+            try run("/usr/sbin/networksetup", kind.setCommand(service: service, server: proxy.server, port: proxy.port))
+        }
+        try run("/usr/sbin/networksetup", kind.stateCommand(service: service, enabled: proxy.enabled))
+    }
+
+    private struct ProxyState {
+        var socks: ProxyEndpoint
+        var http: ProxyEndpoint
+        var https: ProxyEndpoint
+    }
+
+    private struct ProxyEndpoint {
+        var enabled: Bool
+        var server: String
+        var port: Int
+    }
+
+    private enum ProxyKind {
+        case socks
+        case http
+        case https
+
+        func setCommand(service: String, server: String, port: Int) -> [String] {
+            switch self {
+            case .socks:
+                return ["-setsocksfirewallproxy", service, server, "\(port)"]
+            case .http:
+                return ["-setwebproxy", service, server, "\(port)"]
+            case .https:
+                return ["-setsecurewebproxy", service, server, "\(port)"]
+            }
+        }
+
+        func stateCommand(service: String, enabled: Bool) -> [String] {
+            let state = enabled ? "on" : "off"
+            switch self {
+            case .socks:
+                return ["-setsocksfirewallproxystate", service, state]
+            case .http:
+                return ["-setwebproxystate", service, state]
+            case .https:
+                return ["-setsecurewebproxystate", service, state]
+            }
+        }
     }
 }
 
@@ -517,6 +971,36 @@ private enum TCPProbe {
     }
 }
 
+private enum ProxyProbe {
+    static func httpConnect(port: Int, timeout: TimeInterval) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/curl")
+        process.arguments = [
+            "--http1.1",
+            "--proxy", "http://127.0.0.1:\(port)",
+            "--connect-timeout", "\(Int(timeout))",
+            "--max-time", "\(Int(timeout))",
+            "-sS",
+            "-o", "/dev/null",
+            "-w", "%{http_code}",
+            "https://www.google.com/generate_204"
+        ]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        do {
+            try process.run()
+            process.waitUntilExit()
+            let output = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            AppRuntime.appendDiagnostic("proxy preflight curl status=\(process.terminationStatus) output=\(output.trimmingCharacters(in: .whitespacesAndNewlines))")
+            return process.terminationStatus == 0 && output.contains("204")
+        } catch {
+            AppRuntime.appendDiagnostic("proxy preflight curl failed to launch: \(error)")
+            return false
+        }
+    }
+}
+
 private final class ProbeState: @unchecked Sendable {
     private let lock = NSLock()
     private var finished = false
@@ -543,7 +1027,13 @@ private enum NeonCoreError: Error {
     case subscriptionFailed
     case engineMissing
     case unsupportedProtocol
+    case kernelCheckFailed
+    case listenerUnavailable
     case systemProxyFailed
+    case proxyPreflightFailed
+    case tunBridgeMissing
+    case tunBridgeFailed
+    case tunRouteConflict
 }
 
 struct ContentView: View {
@@ -1268,7 +1758,58 @@ private struct NeonTextFieldStyle: TextFieldStyle {
 
 private extension String {
     var localized: String {
-        let value = String(localized: String.LocalizationValue(self), bundle: .module)
-        return value == self ? self : value
+        XCStringCatalog.shared.value(for: self)
+    }
+}
+
+private final class XCStringCatalog: @unchecked Sendable {
+    static let shared = XCStringCatalog()
+
+    private let values: [String: String]
+
+    private init() {
+        guard let url = Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings"),
+              let data = try? Data(contentsOf: url),
+              let catalog = try? JSONDecoder().decode(Catalog.self, from: data)
+        else {
+            values = [:]
+            return
+        }
+        let locale = Self.preferredLocale()
+        values = catalog.strings.mapValues { entry in
+            entry.localizations[locale]?.stringUnit.value
+                ?? entry.localizations["en-AU"]?.stringUnit.value
+                ?? entry.localizations["zh-Hans"]?.stringUnit.value
+                ?? ""
+        }
+    }
+
+    func value(for key: String) -> String {
+        guard let value = values[key], !value.isEmpty else { return key }
+        return value
+    }
+
+    private static func preferredLocale() -> String {
+        let identifier = Locale.current.identifier
+        if identifier.lowercased().hasPrefix("zh") {
+            return "zh-Hans"
+        }
+        return "en-AU"
+    }
+
+    private struct Catalog: Decodable {
+        let strings: [String: Entry]
+    }
+
+    private struct Entry: Decodable {
+        let localizations: [String: Localization]
+    }
+
+    private struct Localization: Decodable {
+        let stringUnit: StringUnit
+    }
+
+    private struct StringUnit: Decodable {
+        let value: String
     }
 }

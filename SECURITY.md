@@ -1,7 +1,7 @@
 # Security Policy
 
-NeonCore Atlas is an early scaffold and does not yet implement real VPN/proxy tunneling.
+NeonCore Atlas includes a real networking runtime and protocol adapter code. Please treat security reports with care.
 
-Please report security issues privately through the project maintainers. Do not file public issues for vulnerabilities that could put users at risk.
+Report vulnerabilities privately through the project maintainers. Do not file public issues for bugs that could expose credentials, traffic, local proxy listeners, routing behavior, update delivery, or platform permissions.
 
-Future security work includes threat modeling for daemon IPC, profile import validation, update signing, platform permissions, Network Extension/VpnService boundaries, and service hardening.
+Security-sensitive work should include tests, clear threat assumptions, and review notes. Areas that require particular care include profile import validation, daemon IPC, update signing, local listener binding, DNS behavior, TUN/VPN boundaries, TLS configuration, and protocol adapter parsing.

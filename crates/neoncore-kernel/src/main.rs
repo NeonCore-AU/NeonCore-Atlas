@@ -1,17 +1,26 @@
 use clap::{Parser, Subcommand};
+use serde::Serialize;
 use std::{path::PathBuf, sync::Arc};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream},
+    net::{TcpListener, TcpStream, UdpSocket},
 };
 use tracing::{debug, error, info, warn};
 
 mod adapter;
+mod connection;
 mod dns;
+mod flow;
+mod outbound;
 mod routing;
 mod session;
+mod tcp_tuning;
 
+use adapter::NetworkCapability;
+use connection::{ConnectionContext, InboundKind};
 use dns::DnsResolver;
+use flow::FlowLink;
+use outbound::OutboundHandler;
 use routing::{RouteDecision, Router};
 use session::{KernelNode, KernelSession, TargetAddress};
 
@@ -29,6 +38,10 @@ enum Command {
         session: PathBuf,
     },
     Check {
+        #[arg(long)]
+        session: PathBuf,
+    },
+    ResolveServer {
         #[arg(long)]
         session: PathBuf,
     },
@@ -54,7 +67,40 @@ async fn main() -> anyhow::Result<()> {
             println!("{}", serde_json::to_string_pretty(&session)?);
             Ok(())
         }
+        Command::ResolveServer { session } => resolve_server(session).await,
     }
+}
+
+#[derive(Debug, Serialize)]
+struct ResolvedServerOutput {
+    server: String,
+    server_port: u16,
+    addresses: Vec<String>,
+}
+
+async fn resolve_server(path: PathBuf) -> anyhow::Result<()> {
+    let session = read_session(path)?;
+    validate_session(&session)?;
+    let resolver = DnsResolver::new(session.dns.clone());
+    let target = TargetAddress {
+        host: session.selected_node.server.clone(),
+        port: session.selected_node.server_port,
+    };
+    let addresses = resolver
+        .resolve_proxy_server(&target)
+        .await?
+        .into_iter()
+        .map(|address| address.ip().to_string())
+        .collect::<Vec<_>>();
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&ResolvedServerOutput {
+            server: target.host,
+            server_port: target.port,
+            addresses,
+        })?
+    );
+    Ok(())
 }
 
 async fn run(path: PathBuf) -> anyhow::Result<()> {
@@ -76,6 +122,7 @@ async fn run(path: PathBuf) -> anyhow::Result<()> {
         tokio::select! {
             accepted = listener.accept() => {
                 let (stream, peer) = accepted?;
+                tcp_tuning::tune_tcp_stream(&stream);
                 let runtime = runtime.clone();
                 debug!(%peer, "accepted inbound connection");
                 tokio::spawn(async move {
@@ -104,8 +151,11 @@ impl KernelRuntime {
         }
     }
 
-    async fn connect(&self, target: &TargetAddress) -> anyhow::Result<adapter::BoxedProxyStream> {
-        match self.router.decide(target)? {
+    async fn connect(
+        &self,
+        context: &mut ConnectionContext,
+    ) -> anyhow::Result<adapter::BoxedProxyStream> {
+        match self.router.decide(&context.target)? {
             RouteDecision::Direct => {
                 let node = KernelNode {
                     id: Some("direct.runtime".to_string()),
@@ -115,14 +165,55 @@ impl KernelRuntime {
                     user_id: String::new(),
                     parameters: serde_json::json!({}),
                 };
-                info!(%target, "routing selected direct outbound");
-                adapter::connect(&node, target, &self.resolver).await
+                info!(
+                    connection_id = context.id,
+                    target = %context.target,
+                    "routing selected direct outbound"
+                );
+                OutboundHandler::new(node, &self.resolver)
+                    .connect(context)
+                    .await
             }
             RouteDecision::Proxy(node) => {
-                info!(%target, protocol = %node.protocol, "routing selected proxy outbound");
-                adapter::connect(&node, target, &self.resolver).await
+                info!(
+                    connection_id = context.id,
+                    target = %context.target,
+                    protocol = %node.protocol,
+                    "routing selected proxy outbound"
+                );
+                OutboundHandler::new(node, &self.resolver)
+                    .connect(context)
+                    .await
             }
-            RouteDecision::Reject => anyhow::bail!("route rejected target: {target}"),
+            RouteDecision::Reject => anyhow::bail!("route rejected target: {}", context.target),
+        }
+    }
+
+    async fn send_udp(
+        &self,
+        context: &mut ConnectionContext,
+        payload: &[u8],
+    ) -> anyhow::Result<Vec<u8>> {
+        match self.router.decide(&context.target)? {
+            RouteDecision::Direct => {
+                let node = KernelNode {
+                    id: Some("direct.runtime".to_string()),
+                    protocol: "direct".to_string(),
+                    server: "direct".to_string(),
+                    server_port: 1,
+                    user_id: String::new(),
+                    parameters: serde_json::json!({}),
+                };
+                OutboundHandler::new(node, &self.resolver)
+                    .send_udp(context, payload)
+                    .await
+            }
+            RouteDecision::Proxy(node) => {
+                OutboundHandler::new(node, &self.resolver)
+                    .send_udp(context, payload)
+                    .await
+            }
+            RouteDecision::Reject => anyhow::bail!("route rejected target: {}", context.target),
         }
     }
 }
@@ -171,6 +262,10 @@ async fn handle_socks5(
 
     let mut request_head = [0_u8; 4];
     client.read_exact(&mut request_head).await?;
+    if request_head[1] == 0x03 {
+        let _ = read_socks_target(&mut client, request_head[3]).await?;
+        return handle_socks5_udp_associate(client, runtime).await;
+    }
     if request_head[1] != 0x01 {
         client
             .write_all(&[0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
@@ -179,11 +274,130 @@ async fn handle_socks5(
     }
 
     let target = read_socks_target(&mut client, request_head[3]).await?;
-    let remote = runtime.connect(&target).await?;
+    let mut context = ConnectionContext::new(InboundKind::Socks5, target, NetworkCapability::Tcp);
+    let remote = runtime.connect(&mut context).await?;
     client
         .write_all(&[0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
         .await?;
-    proxy_bidirectional(client, remote).await
+    FlowLink::new(context, client, remote).relay().await
+}
+
+async fn handle_socks5_udp_associate(
+    mut client: TcpStream,
+    runtime: KernelRuntime,
+) -> anyhow::Result<()> {
+    let socket = UdpSocket::bind((runtime.session.listen_host.as_str(), 0)).await?;
+    let local = socket.local_addr()?;
+    let ip = match local.ip() {
+        std::net::IpAddr::V4(ip) => ip.octets(),
+        std::net::IpAddr::V6(_) => [127, 0, 0, 1],
+    };
+    let mut response = vec![0x05, 0x00, 0x00, 0x01];
+    response.extend_from_slice(&ip);
+    response.extend_from_slice(&local.port().to_be_bytes());
+    client.write_all(&response).await?;
+
+    let mut udp_buffer = vec![0_u8; 65_536];
+    let mut control = [0_u8; 1];
+    loop {
+        tokio::select! {
+            read = client.read(&mut control) => {
+                if read? == 0 {
+                    return Ok(());
+                }
+            }
+            packet = socket.recv_from(&mut udp_buffer) => {
+                let (n, peer) = packet?;
+                let (target, payload) = parse_socks_udp_packet(&udp_buffer[..n])?;
+                let mut context = ConnectionContext::new(
+                    InboundKind::Socks5Udp,
+                    target.clone(),
+                    NetworkCapability::Udp,
+                );
+                match runtime.send_udp(&mut context, payload).await {
+                    Ok(reply) => {
+                        let packet = build_socks_udp_packet(&target, &reply)?;
+                        let _ = socket.send_to(&packet, peer).await;
+                    }
+                    Err(err) => warn!(error = %err, target = %target, "SOCKS UDP relay failed"),
+                }
+            }
+        }
+    }
+}
+
+fn parse_socks_udp_packet(packet: &[u8]) -> anyhow::Result<(TargetAddress, &[u8])> {
+    if packet.len() < 4 || packet[0] != 0 || packet[1] != 0 || packet[2] != 0 {
+        anyhow::bail!("invalid SOCKS UDP header");
+    }
+    let mut index = 4;
+    let host = match packet[3] {
+        0x01 => {
+            if packet.len() < index + 4 {
+                anyhow::bail!("truncated SOCKS UDP IPv4 address");
+            }
+            let host = std::net::Ipv4Addr::new(
+                packet[index],
+                packet[index + 1],
+                packet[index + 2],
+                packet[index + 3],
+            )
+            .to_string();
+            index += 4;
+            host
+        }
+        0x03 => {
+            if packet.len() < index + 1 {
+                anyhow::bail!("truncated SOCKS UDP domain length");
+            }
+            let len = packet[index] as usize;
+            index += 1;
+            if packet.len() < index + len {
+                anyhow::bail!("truncated SOCKS UDP domain");
+            }
+            let host = String::from_utf8(packet[index..index + len].to_vec())?;
+            index += len;
+            host
+        }
+        0x04 => {
+            if packet.len() < index + 16 {
+                anyhow::bail!("truncated SOCKS UDP IPv6 address");
+            }
+            let mut octets = [0_u8; 16];
+            octets.copy_from_slice(&packet[index..index + 16]);
+            index += 16;
+            std::net::Ipv6Addr::from(octets).to_string()
+        }
+        _ => anyhow::bail!("unsupported SOCKS UDP address type"),
+    };
+    if packet.len() < index + 2 {
+        anyhow::bail!("truncated SOCKS UDP port");
+    }
+    let port = u16::from_be_bytes([packet[index], packet[index + 1]]);
+    index += 2;
+    Ok((TargetAddress { host, port }, &packet[index..]))
+}
+
+fn build_socks_udp_packet(target: &TargetAddress, payload: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let mut packet = vec![0, 0, 0];
+    if let Ok(ipv4) = target.host.parse::<std::net::Ipv4Addr>() {
+        packet.push(0x01);
+        packet.extend_from_slice(&ipv4.octets());
+    } else if let Ok(ipv6) = target.host.parse::<std::net::Ipv6Addr>() {
+        packet.push(0x04);
+        packet.extend_from_slice(&ipv6.octets());
+    } else {
+        let host = target.host.as_bytes();
+        if host.len() > u8::MAX as usize {
+            anyhow::bail!("SOCKS UDP response domain is too long");
+        }
+        packet.push(0x03);
+        packet.push(host.len() as u8);
+        packet.extend_from_slice(host);
+    }
+    packet.extend_from_slice(&target.port.to_be_bytes());
+    packet.extend_from_slice(payload);
+    Ok(packet)
 }
 
 async fn read_socks_target(client: &mut TcpStream, atyp: u8) -> anyhow::Result<TargetAddress> {
@@ -234,18 +448,23 @@ async fn handle_http(
 
     if method.eq_ignore_ascii_case("CONNECT") {
         let target = parse_host_port(uri, 443)?;
-        let remote = runtime.connect(&target).await?;
+        let mut context =
+            ConnectionContext::new(InboundKind::HttpConnect, target, NetworkCapability::Tcp);
+        let remote = runtime.connect(&mut context).await?;
         client
             .write_all(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             .await?;
-        return proxy_bidirectional(client, remote).await;
+        return FlowLink::new(context, client, remote).relay().await;
     }
 
     let (target, origin_uri) = parse_http_forward_target(uri, &request)?;
-    let mut remote = runtime.connect(&target).await?;
+    let mut context =
+        ConnectionContext::new(InboundKind::HttpForward, target, NetworkCapability::Tcp);
+    let remote = runtime.connect(&mut context).await?;
     let rewritten = rewrite_http_request(&request, method, uri, version, &origin_uri)?;
-    remote.write_all(rewritten.as_bytes()).await?;
-    proxy_bidirectional(client, remote).await
+    let mut flow = FlowLink::new(context, client, remote);
+    flow.write_outbound(rewritten.as_bytes()).await?;
+    flow.relay().await
 }
 
 async fn read_http_head(client: &mut TcpStream, buffer: &mut Vec<u8>) -> anyhow::Result<()> {
@@ -318,19 +537,6 @@ fn parse_host_port(value: &str, default_port: u16) -> anyhow::Result<TargetAddre
         host: host.to_string(),
         port,
     })
-}
-
-async fn proxy_bidirectional(
-    mut left: TcpStream,
-    mut right: adapter::BoxedProxyStream,
-) -> anyhow::Result<()> {
-    let (from_left, from_right) = tokio::io::copy_bidirectional(&mut left, &mut right).await?;
-    debug!(
-        client_to_remote = from_left,
-        remote_to_client = from_right,
-        "connection relayed"
-    );
-    Ok(())
 }
 
 fn init_logging() {
@@ -447,5 +653,47 @@ mod tests {
         let mut echoed = [0_u8; 4];
         client.read_exact(&mut echoed).await.unwrap();
         assert_eq!(&echoed, b"pong");
+    }
+
+    #[tokio::test]
+    async fn socks5_udp_associate_relays_datagram() {
+        let echo = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let echo_port = echo.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let mut buffer = [0_u8; 1024];
+            let (n, peer) = echo.recv_from(&mut buffer).await.unwrap();
+            echo.send_to(&buffer[..n], peer).await.unwrap();
+        });
+
+        let kernel_port = run_test_kernel(direct_session(0)).await.unwrap();
+        let mut client = TcpStream::connect(("127.0.0.1", kernel_port))
+            .await
+            .unwrap();
+        client.write_all(&[0x05, 0x01, 0x00]).await.unwrap();
+        let mut method = [0_u8; 2];
+        client.read_exact(&mut method).await.unwrap();
+        assert_eq!(method, [0x05, 0x00]);
+
+        let mut request = vec![0x05, 0x03, 0x00, 0x01, 0, 0, 0, 0];
+        request.extend_from_slice(&0_u16.to_be_bytes());
+        client.write_all(&request).await.unwrap();
+        let mut response = [0_u8; 10];
+        client.read_exact(&mut response).await.unwrap();
+        assert_eq!(response[1], 0x00);
+        let relay_port = u16::from_be_bytes([response[8], response[9]]);
+
+        let udp = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let mut packet = vec![0, 0, 0, 0x01, 127, 0, 0, 1];
+        packet.extend_from_slice(&echo_port.to_be_bytes());
+        packet.extend_from_slice(b"gram");
+        udp.send_to(&packet, ("127.0.0.1", relay_port))
+            .await
+            .unwrap();
+
+        let mut buffer = [0_u8; 1024];
+        let (n, _) = udp.recv_from(&mut buffer).await.unwrap();
+        let (target, payload) = parse_socks_udp_packet(&buffer[..n]).unwrap();
+        assert_eq!(target.port, echo_port);
+        assert_eq!(payload, b"gram");
     }
 }

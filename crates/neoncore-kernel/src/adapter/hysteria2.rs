@@ -1,6 +1,7 @@
 use crate::{
-    adapter::{boxed_stream, BoxedProxyStream, OutboundAdapter},
-    dns::DnsResolver,
+    adapter::{
+        boxed_stream, BoxedProxyStream, NetworkCapability, OutboundAdapter, OutboundContext,
+    },
     session::{KernelNode, TargetAddress},
 };
 use blake2::{
@@ -8,9 +9,32 @@ use blake2::{
     Blake2b, Digest,
 };
 use rand::RngCore;
-use std::net::{SocketAddr, UdpSocket};
+use std::{
+    collections::HashMap,
+    net::{SocketAddr, UdpSocket},
+    sync::{Arc, Mutex, OnceLock},
+};
 
 pub struct Hy2Adapter;
+
+static HY2_CLIENTS: OnceLock<Mutex<HashMap<String, Hy2ClientPool>>> = OnceLock::new();
+const HY2_CLIENT_POOL_SIZE: usize = 4;
+
+struct Hy2ClientPool {
+    clients: Vec<Arc<hysteria2::ReconnectableClient>>,
+    next: usize,
+}
+
+impl Hy2ClientPool {
+    fn next_client(&mut self) -> Option<Arc<hysteria2::ReconnectableClient>> {
+        if self.clients.is_empty() {
+            return None;
+        }
+        let client = self.clients[self.next % self.clients.len()].clone();
+        self.next = self.next.wrapping_add(1);
+        Some(client)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hy2Config {
@@ -21,11 +45,22 @@ pub struct Hy2Config {
     pub insecure: bool,
     pub obfs: Option<Hy2Obfs>,
     pub port_hopping_range: Option<(u16, u16)>,
+    pub fast_open: bool,
+    pub udp_timeout_ms: u64,
+    pub bbr_profile: Hy2BbrProfile,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Hy2Obfs {
     Salamander { password: String },
+    Gecko { password: String },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Hy2BbrProfile {
+    Conservative,
+    Standard,
+    Aggressive,
 }
 
 #[cfg_attr(not(test), allow(dead_code))]
@@ -48,31 +83,162 @@ pub struct Hy2UdpMessage {
 
 #[async_trait::async_trait]
 impl OutboundAdapter for Hy2Adapter {
-    fn validate(node: &KernelNode) -> anyhow::Result<()> {
+    fn protocol_names(&self) -> &'static [&'static str] {
+        &["hysteria2", "hy2"]
+    }
+
+    fn networks(&self) -> &'static [NetworkCapability] {
+        &[NetworkCapability::Tcp, NetworkCapability::Udp]
+    }
+
+    fn validate(&self, node: &KernelNode) -> anyhow::Result<()> {
         Hy2Config::from_node(node)?;
         Ok(())
     }
 
     async fn connect(
+        &self,
         node: &KernelNode,
         target: &TargetAddress,
-        _resolver: &DnsResolver,
+        context: &OutboundContext<'_>,
     ) -> anyhow::Result<BoxedProxyStream> {
-        let config = Hy2Config::from_node(node)?;
-        let client = hysteria2::connect(&hysteria2::config::Config {
-            auth: config.auth,
-            server_addr: format!("{}:{}", config.server, config.server_port),
-            server_name: config.sni,
-            insecure: config.insecure,
-            port_hopping_range: config.port_hopping_range,
-        })
-        .await
-        .map_err(|err| anyhow::anyhow!("Hysteria2 connect failed: {err}"))?;
-        let stream = client
-            .tcp_connect(target.to_string())
-            .await
-            .map_err(|err| anyhow::anyhow!("Hysteria2 TCP connect failed: {err}"))?;
+        let mut config = Hy2Config::from_node(node)?;
+        let resolved = context
+            .resolver
+            .resolve_proxy_server(&TargetAddress {
+                host: config.server.clone(),
+                port: config.server_port,
+            })
+            .await?;
+        let address = resolved
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("no usable resolved address for Hysteria2 server"))?;
+        config.server = address.ip().to_string();
+        let key = config.cache_key();
+        let client = get_or_connect_client(&key, &config).await?;
+        let stream = match client.tcp_connect(target.to_string()).await {
+            Ok(stream) => stream,
+            Err(first_err) => {
+                if !is_session_level_error(&first_err) {
+                    return Err(anyhow::anyhow!("Hysteria2 TCP connect failed: {first_err}"));
+                }
+                remove_cached_client(&key);
+                let client = get_or_connect_client(&key, &config).await?;
+                client.tcp_connect(target.to_string()).await.map_err(|err| {
+                    anyhow::anyhow!(
+                        "Hysteria2 TCP connect failed after reconnect: {err}; first error: {first_err}"
+                    )
+                })?
+            }
+        };
         Ok(boxed_stream(stream))
+    }
+
+    async fn send_udp(
+        &self,
+        node: &KernelNode,
+        target: &TargetAddress,
+        payload: &[u8],
+        context: &OutboundContext<'_>,
+    ) -> anyhow::Result<Vec<u8>> {
+        let mut config = Hy2Config::from_node(node)?;
+        let resolved = context
+            .resolver
+            .resolve_proxy_server(&TargetAddress {
+                host: config.server.clone(),
+                port: config.server_port,
+            })
+            .await?;
+        let address = resolved
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("no usable resolved address for Hysteria2 server"))?;
+        config.server = address.ip().to_string();
+        let key = config.cache_key();
+        let client = get_or_connect_client(&key, &config).await?;
+        let reply = client
+            .udp_exchange(target.to_string(), bytes::Bytes::copy_from_slice(payload))
+            .await
+            .map_err(|err| anyhow::anyhow!("Hysteria2 UDP relay failed: {err}"))?;
+        Ok(reply.to_vec())
+    }
+}
+
+fn is_session_level_error(error: &hysteria2::HysteriaError) -> bool {
+    matches!(
+        error,
+        hysteria2::HysteriaError::QuicConnectionError(_)
+            | hysteria2::HysteriaError::QuicConnectError(_)
+            | hysteria2::HysteriaError::QuicWriteError(_)
+            | hysteria2::HysteriaError::QuicStreamClosed(_)
+            | hysteria2::HysteriaError::H3ConnectionError(_)
+    )
+}
+
+async fn get_or_connect_client(
+    key: &str,
+    config: &Hy2Config,
+) -> anyhow::Result<Arc<hysteria2::ReconnectableClient>> {
+    if let Some(client) = cached_client(key) {
+        return Ok(client);
+    }
+    let client = Arc::new(hysteria2::ReconnectableClient::new(hysteria2_config(
+        config,
+    )));
+    let clients = HY2_CLIENTS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut clients = clients.lock().expect("Hysteria2 client cache poisoned");
+    let pool = clients
+        .entry(key.to_string())
+        .or_insert_with(|| Hy2ClientPool {
+            clients: Vec::new(),
+            next: 0,
+        });
+    if pool.clients.len() < HY2_CLIENT_POOL_SIZE {
+        pool.clients.push(client.clone());
+        return Ok(client);
+    }
+    Ok(pool.next_client().unwrap_or(client))
+}
+
+fn cached_client(key: &str) -> Option<Arc<hysteria2::ReconnectableClient>> {
+    let clients = HY2_CLIENTS.get()?;
+    let mut clients = clients.lock().ok()?;
+    let pool = clients.get_mut(key)?;
+    pool.next_client()
+}
+
+fn remove_cached_client(key: &str) {
+    if let Some(clients) = HY2_CLIENTS.get() {
+        if let Ok(mut clients) = clients.lock() {
+            clients.remove(key);
+        }
+    }
+}
+
+fn hysteria2_config(config: &Hy2Config) -> hysteria2::config::Config {
+    hysteria2::config::Config {
+        auth: config.auth.clone(),
+        server_addr: format!("{}:{}", config.server, config.server_port),
+        server_name: config.sni.clone(),
+        insecure: config.insecure,
+        obfs: config.obfs.as_ref().map(|obfs| match obfs {
+            Hy2Obfs::Salamander { password } => hysteria2::config::ObfsConfig {
+                kind: "salamander".to_string(),
+                password: password.clone(),
+            },
+            Hy2Obfs::Gecko { password } => hysteria2::config::ObfsConfig {
+                kind: "gecko".to_string(),
+                password: password.clone(),
+            },
+        }),
+        port_hopping_range: config.port_hopping_range,
+        fast_open: config.fast_open,
+        udp_timeout_ms: config.udp_timeout_ms,
+        bbr_profile: match config.bbr_profile {
+            Hy2BbrProfile::Conservative => hysteria2::config::BbrProfile::Conservative,
+            Hy2BbrProfile::Standard => hysteria2::config::BbrProfile::Standard,
+            Hy2BbrProfile::Aggressive => hysteria2::config::BbrProfile::Aggressive,
+        },
+        congestion: Some(Arc::new(Default::default())),
     }
 }
 
@@ -81,9 +247,10 @@ impl Hy2Config {
         if node.user_id.is_empty() {
             anyhow::bail!("Hysteria2 requires an authentication secret");
         }
-        let Some(sni) = node.parameter("sni") else {
-            anyhow::bail!("Hysteria2 requires an SNI value");
-        };
+        let sni = node
+            .parameter("sni")
+            .or_else(|| node.parameter("peer"))
+            .unwrap_or(&node.server);
         let obfs = match node.parameter("obfs") {
             Some("salamander") => {
                 let password = node
@@ -91,6 +258,15 @@ impl Hy2Config {
                     .or_else(|| node.parameter("obfs_password"))
                     .ok_or_else(|| anyhow::anyhow!("Hysteria2 Salamander requires a password"))?;
                 Some(Hy2Obfs::Salamander {
+                    password: password.to_string(),
+                })
+            }
+            Some("gecko") => {
+                let password = node
+                    .parameter("obfs-password")
+                    .or_else(|| node.parameter("obfs_password"))
+                    .ok_or_else(|| anyhow::anyhow!("Hysteria2 Gecko requires a password"))?;
+                Some(Hy2Obfs::Gecko {
                     password: password.to_string(),
                 })
             }
@@ -104,11 +280,54 @@ impl Hy2Config {
             sni: sni.to_string(),
             insecure: node
                 .parameter("insecure")
+                .or_else(|| node.parameter("skip-cert-verify"))
+                .or_else(|| node.parameter("skip_cert_verify"))
                 .map(|value| matches!(value, "1" | "true" | "yes"))
                 .unwrap_or(false),
             obfs,
             port_hopping_range: parse_port_hopping_range(node.parameter("mport"))?,
+            fast_open: bool_param(node, &["fast-open", "fast_open"]).unwrap_or(true),
+            udp_timeout_ms: node
+                .parameter("udp-timeout-ms")
+                .or_else(|| node.parameter("udp_timeout_ms"))
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(15_000),
+            bbr_profile: parse_bbr_profile(
+                node.parameter("bbr-profile")
+                    .or_else(|| node.parameter("bbr_profile")),
+            )?,
         })
+    }
+
+    fn cache_key(&self) -> String {
+        format!(
+            "{}:{}:{}:{}:{}:{:?}:{:?}:{}:{}:{:?}",
+            self.server,
+            self.server_port,
+            self.auth,
+            self.sni,
+            self.insecure,
+            self.obfs,
+            self.port_hopping_range,
+            self.fast_open,
+            self.udp_timeout_ms,
+            self.bbr_profile
+        )
+    }
+}
+
+fn bool_param(node: &KernelNode, keys: &[&str]) -> Option<bool> {
+    keys.iter()
+        .find_map(|key| node.parameter(key))
+        .map(|value| matches!(value, "1" | "true" | "yes" | "on"))
+}
+
+fn parse_bbr_profile(value: Option<&str>) -> anyhow::Result<Hy2BbrProfile> {
+    match value.unwrap_or("standard").to_ascii_lowercase().as_str() {
+        "conservative" => Ok(Hy2BbrProfile::Conservative),
+        "" | "standard" => Ok(Hy2BbrProfile::Standard),
+        "aggressive" => Ok(Hy2BbrProfile::Aggressive),
+        other => anyhow::bail!("unsupported Hysteria2 BBR profile: {other}"),
     }
 }
 

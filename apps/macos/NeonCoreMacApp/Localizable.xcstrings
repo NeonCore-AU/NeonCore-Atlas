@@ -1472,6 +1472,190 @@
           }
         }
       }
+    },
+    "log.engine_start_failed": {
+      "comment": "Shown when neoncore-kernel validates the selected node but cannot start the local listener.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neoncore-kernel could not start the local proxy listener"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "neoncore-kernel 无法启动本地代理监听"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[ñéõñçõŕé-ķéŕñéļ çõûļð ñõţ šţáŕţ ţhé ļõçáļ þŕõxý ļîšţéñéŕ~~~~]"
+          }
+        }
+      }
+    },
+    "log.proxy_preflight_failed": {
+      "comment": "Shown when the local proxy listener starts but cannot complete a real outbound CONNECT probe.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proxy preflight failed before system proxy was enabled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "代理预检失败，尚未启用系统代理"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Þŕõxý þŕéƒļîĝĥţ ƒáîļéð βéƒõŕé šýšţéɱ þŕõxý ŵáš éñáβļéð~~~~]"
+          }
+        }
+      }
+    },
+    "connection.status.connected": {
+      "comment": "Semantic NeonCore localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Connected~~~~]"
+          }
+        }
+      }
+    },
+    "nodes.action.test_latency": {
+      "comment": "Semantic NeonCore localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test latency"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "测试延迟"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Test latency~~~~]"
+          }
+        }
+      }
+    },
+    "logs.title": {
+      "comment": "Semantic NeonCore localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logs"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日志"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Logs~~~~]"
+          }
+        }
+      }
+    },
+    "logs.action.clear": {
+      "comment": "Semantic NeonCore localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Clear~~~~]"
+          }
+        }
+      }
+    },
+    "subscription.import.success": {
+      "comment": "Semantic NeonCore localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subscription imported"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订阅导入成功"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Subscription imported~~~~]"
+          }
+        }
+      }
+    },
+    "nodes.latency.unknown": {
+      "comment": "Semantic NeonCore localization key.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Unknown~~~~]"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

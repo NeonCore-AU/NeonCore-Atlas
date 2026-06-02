@@ -11,3 +11,4 @@ build/
 *.xcodeproj/xcuserdata/
 bin/
 obj/
+Research/

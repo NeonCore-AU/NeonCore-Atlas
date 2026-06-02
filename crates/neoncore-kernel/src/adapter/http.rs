@@ -1,6 +1,7 @@
 use crate::{
-    adapter::{boxed_stream, BoxedProxyStream, OutboundAdapter},
-    dns::DnsResolver,
+    adapter::{
+        boxed_stream, BoxedProxyStream, NetworkCapability, OutboundAdapter, OutboundContext,
+    },
     session::{KernelNode, TargetAddress},
 };
 use tokio::{
@@ -12,7 +13,15 @@ pub struct HttpAdapter;
 
 #[async_trait::async_trait]
 impl OutboundAdapter for HttpAdapter {
-    fn validate(node: &KernelNode) -> anyhow::Result<()> {
+    fn protocol_names(&self) -> &'static [&'static str] {
+        &["http", "https"]
+    }
+
+    fn networks(&self) -> &'static [NetworkCapability] {
+        &[NetworkCapability::Tcp]
+    }
+
+    fn validate(&self, node: &KernelNode) -> anyhow::Result<()> {
         if node.server.is_empty() || node.server_port == 0 {
             anyhow::bail!("HTTP proxy endpoint is invalid");
         }
@@ -20,21 +29,23 @@ impl OutboundAdapter for HttpAdapter {
     }
 
     async fn connect(
+        &self,
         node: &KernelNode,
         target: &TargetAddress,
-        resolver: &DnsResolver,
+        context: &OutboundContext<'_>,
     ) -> anyhow::Result<BoxedProxyStream> {
-        Self::validate(node)?;
+        self.validate(node)?;
         let proxy = TargetAddress {
             host: node.server.clone(),
             port: node.server_port,
         };
-        let addresses = resolver.resolve(&proxy).await?;
+        let addresses = context.resolver.resolve_proxy_server(&proxy).await?;
         let mut stream = None;
         let mut last_error = None;
         for address in addresses {
             match TcpStream::connect(address).await {
                 Ok(value) => {
+                    let _ = value.set_nodelay(true);
                     stream = Some(value);
                     break;
                 }
@@ -75,7 +86,7 @@ async fn read_http_head(stream: &mut TcpStream) -> anyhow::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::session::KernelDnsConfig;
+    use crate::{dns::DnsResolver, session::KernelDnsConfig};
     use serde_json::json;
     use tokio::net::TcpListener;
 
@@ -101,17 +112,21 @@ mod tests {
             parameters: json!({}),
         };
         let resolver = DnsResolver::new(KernelDnsConfig::default());
+        let context = OutboundContext {
+            resolver: &resolver,
+        };
 
-        let stream = HttpAdapter::connect(
-            &node,
-            &TargetAddress {
-                host: "example.com".to_string(),
-                port: 443,
-            },
-            &resolver,
-        )
-        .await
-        .unwrap();
+        let stream = HttpAdapter
+            .connect(
+                &node,
+                &TargetAddress {
+                    host: "example.com".to_string(),
+                    port: 443,
+                },
+                &context,
+            )
+            .await
+            .unwrap();
 
         drop(stream);
         server.await.unwrap();

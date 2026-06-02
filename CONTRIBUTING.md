@@ -8,7 +8,7 @@ Thanks for helping build NeonCore Atlas. Keep changes small, documented, and fri
 - Keep platform VPN and service integration behind adapters.
 - Do not add telemetry or credentials.
 - Do not hard-code production user-visible strings. Add localization keys and resources instead.
-- Do not implement real tunneling without design discussion and tests.
+- Protocol and packet-path changes need design notes, tests, and security review.
 
 ## Checks
 
