@@ -138,7 +138,9 @@ impl ActiveKeyExchange for RealityX25519Exchange {
 
     fn reality_shared_secret(&self, peer_pub_key: &[u8]) -> Option<Result<SharedSecret, Error>> {
         if peer_pub_key.len() != 32 {
-            return Some(Err(Error::General("invalid REALITY server public key".into())));
+            return Some(Err(Error::General(
+                "invalid REALITY server public key".into(),
+            )));
         }
         let mut peer = [0u8; 32];
         peer.copy_from_slice(peer_pub_key);

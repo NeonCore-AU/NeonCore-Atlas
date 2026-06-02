@@ -7,15 +7,21 @@ use crate::{
     dns::DnsResolver,
     session::{KernelNode, TargetAddress},
 };
-use std::{net::{Ipv4Addr, Ipv6Addr}, sync::Arc};
+use std::{
+    net::{Ipv4Addr, Ipv6Addr},
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 use tokio::{
-    io::{duplex, AsyncRead, AsyncReadExt, AsyncWriteExt},
+    io::{duplex, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf},
     net::TcpStream,
 };
 use tokio_rustls::{
     rustls::{self, client::Resumption, pki_types::ServerName},
     TlsConnector,
 };
+use tracing::debug;
 
 pub struct VlessAdapter;
 
@@ -84,10 +90,10 @@ impl OutboundAdapter for VlessAdapter {
                     ..
                 } = &config.security
                 {
-                    let mut stream =
-                        connect_reality_tls(stream, sni, public_key, short_id).await?;
+                    let mut stream = connect_reality_tls(stream, sni, public_key, short_id).await?;
                     stream.write_all(&request).await?;
-                    return Ok(bridge_vless_stream(stream, Some(config.uuid)));
+                    stream.flush().await?;
+                    return bridge_vision_stream(stream, config.uuid);
                 }
                 let connector = native_tls::TlsConnector::builder()
                     .danger_accept_invalid_certs(config.insecure)
@@ -106,7 +112,7 @@ async fn connect_reality_tls(
     sni: &str,
     public_key: &str,
     short_id: &str,
-) -> anyhow::Result<tokio_rustls::client::TlsStream<TcpStream>> {
+) -> anyhow::Result<tokio_rustls::client::TlsStream<RecordLimitedTcp>> {
     let mut provider = rustls::crypto::aws_lc_rs::default_provider();
     provider.kx_groups = vec![&REALITY_X25519_GROUP];
     let verifier = RealityCertificateVerifier::new(provider.clone());
@@ -122,7 +128,7 @@ async fn connect_reality_tls(
     let server_name = ServerName::try_from(sni.to_string())
         .map_err(|_| anyhow::anyhow!("VLESS REALITY SNI is invalid"))?;
     TlsConnector::from(Arc::new(config))
-        .connect(server_name, stream)
+        .connect(server_name, RecordLimitedTcp::new(stream))
         .await
         .map_err(Into::into)
 }
@@ -342,6 +348,86 @@ where
     boxed_stream(local)
 }
 
+fn bridge_vision_stream(
+    stream: tokio_rustls::client::TlsStream<RecordLimitedTcp>,
+    uuid: [u8; 16],
+) -> anyhow::Result<BoxedProxyStream> {
+    let (local, bridge) = duplex(128 * 1024);
+    tokio::spawn(async move {
+        let mut remote = VisionRemote::Tls(Some(stream));
+        let (mut local_read, mut local_write) = tokio::io::split(bridge);
+        let mut response_header = VlessResponseHeaderStripper::default();
+        let mut downlink = VisionUnpaddingState::new(uuid);
+        let mut uplink = VisionUplinkState::new();
+        let mut remote_buffer = [0u8; 16 * 1024];
+        let mut local_buffer = [0u8; 16 * 1024];
+
+        if remote
+            .write_all(&xtls_padding(None, 0, Some(uuid), true))
+            .await
+            .is_err()
+            || remote.flush().await.is_err()
+        {
+            let _ = local_write.shutdown().await;
+            return;
+        }
+
+        loop {
+            tokio::select! {
+                read = remote.read(&mut remote_buffer) => {
+                    match read {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            let Some(payload) = response_header.push(&remote_buffer[..n]) else {
+                                continue;
+                            };
+                            if payload.is_empty() {
+                                continue;
+                            }
+                            let result = downlink.push(&payload);
+                            for chunk in result.chunks {
+                                if local_write.write_all(&chunk).await.is_err() {
+                                    return;
+                                }
+                            }
+                            if result.direct {
+                                debug!("vision downlink switching to raw");
+                                if remote.switch_to_raw().is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+                read = local_read.read(&mut local_buffer) => {
+                    match read {
+                        Ok(0) => break,
+                        Ok(n) if uplink.padding => {
+                            let command = uplink.command_for(&local_buffer[..n]);
+                            debug!(command, len = n, "vision uplink padding block");
+                            let padded = xtls_padding(Some(&local_buffer[..n]), command, None, true);
+                            if remote.write_all(&padded).await.is_err() || remote.flush().await.is_err() {
+                                break;
+                            }
+                        }
+                        Ok(n) => {
+                            if remote.write_all(&local_buffer[..n]).await.is_err() || remote.flush().await.is_err() {
+                                break;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            }
+        }
+
+        let _ = local_write.shutdown().await;
+        let _ = remote.shutdown().await;
+    });
+    Ok(boxed_stream(local))
+}
+
 async fn write_downlink<W>(
     writer: &mut W,
     state: &mut Option<VisionUnpaddingState>,
@@ -353,21 +439,27 @@ where
     let Some(state) = state else {
         return writer.write_all(data).await;
     };
-    let chunks = state.push(data);
-    for chunk in chunks {
+    let result = state.push(data);
+    for chunk in result.chunks {
         writer.write_all(&chunk).await?;
     }
     Ok(())
 }
 
-fn xtls_padding(content: Option<&[u8]>, command: u8, uuid: Option<[u8; 16]>, long: bool) -> Vec<u8> {
+fn xtls_padding(
+    content: Option<&[u8]>,
+    command: u8,
+    uuid: Option<[u8; 16]>,
+    long: bool,
+) -> Vec<u8> {
     let content = content.unwrap_or(&[]);
     let padding_len = if long && content.len() < 900 {
         900usize.saturating_sub(content.len())
     } else {
         0
     };
-    let mut out = Vec::with_capacity(uuid.map(|_| 16).unwrap_or(0) + 5 + content.len() + padding_len);
+    let mut out =
+        Vec::with_capacity(uuid.map(|_| 16).unwrap_or(0) + 5 + content.len() + padding_len);
     if let Some(uuid) = uuid {
         out.extend_from_slice(&uuid);
     }
@@ -394,12 +486,16 @@ impl VisionUnpaddingState {
         }
     }
 
-    fn push(&mut self, data: &[u8]) -> Vec<Vec<u8>> {
+    fn push(&mut self, data: &[u8]) -> VisionPushResult {
         if matches!(self.mode, VisionUnpaddingMode::Raw) {
-            return vec![data.to_vec()];
+            return VisionPushResult {
+                chunks: vec![data.to_vec()],
+                direct: false,
+            };
         }
         self.pending.extend_from_slice(data);
         let mut output = Vec::new();
+        let mut direct = false;
         loop {
             match self.mode {
                 VisionUnpaddingMode::Unknown => {
@@ -436,8 +532,13 @@ impl VisionUnpaddingState {
                     if content_len > 0 {
                         output.push(self.pending[5..5 + content_len].to_vec());
                     }
+                    debug!(
+                        command,
+                        content_len, padding_len, "vision downlink padding block"
+                    );
                     self.pending.drain(..block_len);
                     if command != 0 {
+                        direct = command == 2;
                         self.mode = VisionUnpaddingMode::Raw;
                         if !self.pending.is_empty() {
                             output.push(std::mem::take(&mut self.pending));
@@ -453,7 +554,10 @@ impl VisionUnpaddingState {
                 }
             }
         }
-        output
+        VisionPushResult {
+            chunks: output,
+            direct,
+        }
     }
 }
 
@@ -461,6 +565,201 @@ enum VisionUnpaddingMode {
     Unknown,
     Padding,
     Raw,
+}
+
+struct VisionPushResult {
+    chunks: Vec<Vec<u8>>,
+    direct: bool,
+}
+
+#[derive(Default)]
+struct VlessResponseHeaderStripper {
+    pending: Vec<u8>,
+    done: bool,
+}
+
+impl VlessResponseHeaderStripper {
+    fn push(&mut self, data: &[u8]) -> Option<Vec<u8>> {
+        if self.done {
+            return Some(data.to_vec());
+        }
+        self.pending.extend_from_slice(data);
+        if self.pending.len() < 2 {
+            return None;
+        }
+        if self.pending[0] != 0 {
+            self.done = true;
+            return Some(std::mem::take(&mut self.pending));
+        }
+        let header_len = 2 + self.pending[1] as usize;
+        if self.pending.len() < header_len {
+            return None;
+        }
+        self.done = true;
+        let payload = self.pending.split_off(header_len);
+        self.pending.clear();
+        Some(payload)
+    }
+}
+
+enum VisionRemote {
+    Tls(Option<tokio_rustls::client::TlsStream<RecordLimitedTcp>>),
+    Raw(TcpStream),
+}
+
+impl VisionRemote {
+    async fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::Tls(Some(stream)) => stream.read(buffer).await,
+            Self::Tls(None) => Ok(0),
+            Self::Raw(stream) => stream.read(buffer).await,
+        }
+    }
+
+    async fn write_all(&mut self, data: &[u8]) -> std::io::Result<()> {
+        match self {
+            Self::Tls(Some(stream)) => stream.write_all(data).await,
+            Self::Tls(None) => Err(std::io::Error::new(
+                std::io::ErrorKind::NotConnected,
+                "TLS stream has switched to raw mode",
+            )),
+            Self::Raw(stream) => stream.write_all(data).await,
+        }
+    }
+
+    async fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Self::Tls(Some(stream)) => stream.flush().await,
+            Self::Tls(None) => Ok(()),
+            Self::Raw(stream) => stream.flush().await,
+        }
+    }
+
+    async fn shutdown(&mut self) -> std::io::Result<()> {
+        match self {
+            Self::Tls(Some(stream)) => stream.shutdown().await,
+            Self::Tls(None) => Ok(()),
+            Self::Raw(stream) => stream.shutdown().await,
+        }
+    }
+
+    fn switch_to_raw(&mut self) -> std::io::Result<()> {
+        let Self::Tls(stream) = self else {
+            return Ok(());
+        };
+        let Some(stream) = stream.take() else {
+            return Ok(());
+        };
+        let (tcp, _) = stream.into_inner();
+        *self = Self::Raw(tcp.into_inner());
+        Ok(())
+    }
+}
+
+struct RecordLimitedTcp {
+    tcp: TcpStream,
+    header: [u8; 5],
+    header_len: usize,
+    remaining_body: Option<usize>,
+    pending_yield: bool,
+}
+
+impl RecordLimitedTcp {
+    fn new(tcp: TcpStream) -> Self {
+        Self {
+            tcp,
+            header: [0; 5],
+            header_len: 0,
+            remaining_body: None,
+            pending_yield: false,
+        }
+    }
+
+    fn into_inner(self) -> TcpStream {
+        self.tcp
+    }
+}
+
+impl AsyncRead for RecordLimitedTcp {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        if self.pending_yield {
+            self.pending_yield = false;
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
+        }
+        if buf.remaining() == 0 {
+            return Poll::Ready(Ok(()));
+        }
+
+        let limit = if let Some(remaining) = self.remaining_body {
+            remaining.min(buf.remaining())
+        } else {
+            (5 - self.header_len).min(buf.remaining())
+        };
+        let mut temp = vec![0u8; limit];
+        let mut limited = ReadBuf::new(&mut temp);
+        match Pin::new(&mut self.tcp).poll_read(cx, &mut limited) {
+            Poll::Ready(Ok(())) => {}
+            other => return other,
+        }
+        let read = limited.filled().len();
+        if read == 0 {
+            return Poll::Ready(Ok(()));
+        }
+        buf.put_slice(limited.filled());
+
+        if let Some(remaining) = self.remaining_body {
+            let next = remaining.saturating_sub(read);
+            if next == 0 {
+                self.remaining_body = None;
+                self.header_len = 0;
+                self.header = [0; 5];
+                self.pending_yield = true;
+            } else {
+                self.remaining_body = Some(next);
+            }
+        } else {
+            let just_read = limited.filled();
+            let header_start = self.header_len;
+            let header_end = header_start + read;
+            self.header[header_start..header_end].copy_from_slice(just_read);
+            self.header_len += read;
+            if self.header_len == 5 {
+                let body_len = u16::from_be_bytes([self.header[3], self.header[4]]) as usize;
+                if body_len == 0 {
+                    self.header_len = 0;
+                    self.header = [0; 5];
+                    self.pending_yield = true;
+                } else {
+                    self.remaining_body = Some(body_len);
+                }
+            }
+        }
+
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl AsyncWrite for RecordLimitedTcp {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        Pin::new(&mut self.tcp).poll_write(cx, buf)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.tcp).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Pin::new(&mut self.tcp).poll_shutdown(cx)
+    }
 }
 
 struct VisionUplinkState {
@@ -483,7 +782,7 @@ impl VisionUplinkState {
         }
         if self.saw_tls && data.starts_with(&[0x17, 0x03, 0x03]) {
             self.padding = false;
-            return 1;
+            return 2;
         }
         if !self.saw_tls {
             self.padding = false;
