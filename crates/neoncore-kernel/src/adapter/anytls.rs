@@ -1,5 +1,6 @@
 use crate::{
     adapter::{BoxedProxyStream, NetworkCapability, OutboundAdapter, OutboundContext},
+    packet_session::{packet_target_key, PacketSessionDemux},
     session::{KernelNode, TargetAddress},
     tcp_tuning::tune_tcp_stream,
 };
@@ -12,7 +13,7 @@ use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex as StdMutex, OnceLock, Weak,
     },
     task::{Context, Poll},
@@ -356,9 +357,12 @@ impl AnyTlsClient {
 
 struct AnyTlsUdpConn {
     target: TargetAddress,
-    stream: Mutex<AnyTlsStream>,
+    writer: Mutex<tokio::io::WriteHalf<AnyTlsStream>>,
+    pending: PacketSessionDemux,
+    read_task: StdMutex<Option<tokio::task::JoinHandle<()>>>,
+    next_request_id: AtomicU64,
     last_used: StdMutex<Instant>,
-    closed: AtomicBool,
+    closed: Arc<AtomicBool>,
 }
 
 impl AnyTlsUdpConn {
@@ -374,12 +378,19 @@ impl AnyTlsUdpConn {
         request.extend_from_slice(&encode_socks_address(&target)?);
         stream.write_all(&request).await?;
         stream.flush().await?;
+        let (reader, writer) = tokio::io::split(stream);
+        let pending = PacketSessionDemux::new();
+        let closed = Arc::new(AtomicBool::new(false));
+        let read_task = spawn_anytls_uot_reader(reader, pending.clone(), Arc::clone(&closed));
 
         Ok(Self {
             target,
-            stream: Mutex::new(stream),
+            writer: Mutex::new(writer),
+            pending,
+            read_task: StdMutex::new(Some(read_task)),
+            next_request_id: AtomicU64::new(0),
             last_used: StdMutex::new(Instant::now()),
-            closed: AtomicBool::new(false),
+            closed,
         })
     }
 
@@ -388,21 +399,49 @@ impl AnyTlsUdpConn {
             anyhow::bail!("AnyTLS UoT packet conn is closed");
         }
         let packet = encode_uot_packet(self.target.clone(), payload)?;
-        let mut stream = self.stream.lock().await;
-        stream.write_all(&packet).await?;
-        stream.flush().await?;
-        let response = timeout(
-            Duration::from_secs(20),
-            read_uot_packet(&mut *stream, false),
-        )
-        .await
-        .map_err(|_| anyhow::anyhow!("AnyTLS UoT packet timed out"))??;
+        let target_key = udp_conn_key(&self.target);
+        let request_id = self.next_request_id.fetch_add(1, Ordering::Relaxed);
+        let wait = self.pending.register(target_key.clone(), request_id);
+        {
+            let mut writer = self.writer.lock().await;
+            if let Err(err) = writer.write_all(&packet).await {
+                self.pending.remove(&wait);
+                self.close();
+                return Err(err.into());
+            }
+            if let Err(err) = writer.flush().await {
+                self.pending.remove(&wait);
+                self.close();
+                return Err(err.into());
+            }
+        }
+        let request_id = wait.request_id;
+        let receiver = wait.receiver;
+        let response = match timeout(Duration::from_secs(20), receiver).await {
+            Ok(Ok(result)) => result?,
+            Ok(Err(_)) => {
+                self.pending.remove_by_id(&target_key, request_id);
+                self.close();
+                anyhow::bail!("AnyTLS UoT packet connection closed before a response arrived");
+            }
+            Err(_) => {
+                self.pending.remove_by_id(&target_key, request_id);
+                anyhow::bail!("AnyTLS UoT packet timed out");
+            }
+        };
         self.touch();
-        Ok(response.1)
+        Ok(response)
     }
 
     fn close(&self) {
         self.closed.store(true, Ordering::Relaxed);
+        if let Ok(mut task) = self.read_task.lock() {
+            if let Some(task) = task.take() {
+                task.abort();
+            }
+        }
+        self.pending
+            .fail_all(anyhow::anyhow!("AnyTLS UoT packet connection closed"));
     }
 
     fn is_closed(&self) -> bool {
@@ -424,7 +463,37 @@ impl AnyTlsUdpConn {
 }
 
 fn udp_conn_key(target: &TargetAddress) -> String {
-    format!("{}:{}", target.host, target.port)
+    packet_target_key(&target.host, target.port)
+}
+
+fn spawn_anytls_uot_reader(
+    mut reader: tokio::io::ReadHalf<AnyTlsStream>,
+    pending: PacketSessionDemux,
+    closed: Arc<AtomicBool>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            let (target, payload) = match read_uot_packet(&mut reader, false).await {
+                Ok(packet) => packet,
+                Err(err) => {
+                    closed.store(true, Ordering::Relaxed);
+                    pending.fail_all(err);
+                    break;
+                }
+            };
+            let Some(target) = target else {
+                tracing::warn!("discarded AnyTLS UoT packet without a destination");
+                continue;
+            };
+            let key = udp_conn_key(&target);
+            if !pending.deliver(&key, Ok(payload)) {
+                tracing::warn!(
+                    received = %format!("{}:{}", target.host, target.port),
+                    "discarded AnyTLS UoT packet without a matching waiter"
+                );
+            }
+        }
+    })
 }
 
 struct AnyTlsSession {

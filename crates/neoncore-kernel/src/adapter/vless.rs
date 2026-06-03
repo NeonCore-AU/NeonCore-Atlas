@@ -4,15 +4,17 @@ use crate::{
         reality::{RealityCertificateVerifier, RealitySessionId, REALITY_X25519_GROUP},
         BoxedProxyStream, NetworkCapability, OutboundAdapter, OutboundContext,
     },
+    buffer_pool::PooledBuffer,
     dns::DnsResolver,
     flow::{
         FlowPipe, FLOW_COPY_BUFFER_SIZE, LARGE_FLOW_PIPE_CAPACITY, SMALL_FLOW_COPY_BUFFER_SIZE,
     },
+    packet_session::{packet_target_key, PacketSessionDemux},
     session::{KernelNode, TargetAddress},
     tcp_tuning::tune_tcp_stream,
 };
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use bytes::{Buf, Bytes};
+use bytes::{Buf, Bytes, BytesMut};
 use futures_util::{SinkExt, StreamExt};
 use std::{
     collections::HashMap,
@@ -20,8 +22,8 @@ use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicI32, Ordering},
-        Arc, OnceLock, Weak,
+        atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
+        Arc, Mutex as StdMutex, OnceLock, Weak,
     },
     task::{Context, Poll},
 };
@@ -1672,33 +1674,59 @@ where
 }
 
 struct VlessMuxWorker {
-    stream: Mutex<VlessMuxStream>,
-    closed: AtomicBool,
+    writer: Mutex<VlessMuxWriter>,
+    pending: PacketSessionDemux,
+    read_task: StdMutex<Option<tokio::task::JoinHandle<()>>>,
+    next_request_id: AtomicU64,
+    closed: Arc<AtomicBool>,
 }
 
-struct VlessMuxStream {
-    stream: BoxedProxyStream,
-    response_header_read: bool,
+struct VlessMuxWriter {
+    writer: tokio::io::WriteHalf<BoxedProxyStream>,
     vision_uuid: Option<[u8; 16]>,
     vision_uuid_pending: bool,
-    vision_downlink: Option<VisionUnpaddingState>,
-    read_buffer: Vec<u8>,
     first_packet: bool,
+}
+
+struct VlessMuxReader {
+    reader: tokio::io::ReadHalf<BoxedProxyStream>,
+    response_header_read: bool,
+    vision_downlink: Option<VisionUnpaddingState>,
+    read_buffer: BytesMut,
+}
+
+#[derive(Debug)]
+struct XudpPacket {
+    target: Option<TargetAddress>,
+    payload: Vec<u8>,
 }
 
 impl VlessMuxWorker {
     fn new(stream: BoxedProxyStream, vision_uuid: Option<[u8; 16]>) -> Self {
-        Self {
-            stream: Mutex::new(VlessMuxStream {
-                stream,
+        let (reader, writer) = tokio::io::split(stream);
+        let pending = PacketSessionDemux::new();
+        let closed = Arc::new(AtomicBool::new(false));
+        let read_task = spawn_vless_mux_reader(
+            VlessMuxReader {
+                reader,
                 response_header_read: false,
+                vision_downlink: vision_uuid.map(VisionUnpaddingState::new),
+                read_buffer: BytesMut::with_capacity(SMALL_FLOW_COPY_BUFFER_SIZE),
+            },
+            pending.clone(),
+            Arc::clone(&closed),
+        );
+        Self {
+            writer: Mutex::new(VlessMuxWriter {
+                writer,
                 vision_uuid,
                 vision_uuid_pending: vision_uuid.is_some(),
-                vision_downlink: vision_uuid.map(VisionUnpaddingState::new),
-                read_buffer: Vec::with_capacity(SMALL_FLOW_COPY_BUFFER_SIZE),
                 first_packet: true,
             }),
-            closed: AtomicBool::new(false),
+            pending,
+            read_task: StdMutex::new(Some(read_task)),
+            next_request_id: AtomicU64::new(0),
+            closed,
         }
     }
 
@@ -1706,23 +1734,33 @@ impl VlessMuxWorker {
         if self.is_closed() {
             anyhow::bail!("VLESS mux worker is closed");
         }
-        let mut stream = self.stream.lock().await;
-        let frame = encode_xudp_packet(target, payload, stream.first_packet)?;
-        stream.first_packet = false;
-        let result = async {
-            stream.write_frame(&frame).await?;
-            if !stream.response_header_read {
-                read_vless_response_header(&mut stream.stream).await?;
-                stream.response_header_read = true;
+        let target_key = packet_target_key(&target.host, target.port);
+        let wait = self.pending.register(
+            target_key.clone(),
+            self.next_request_id.fetch_add(1, Ordering::Relaxed),
+        );
+        {
+            let mut writer = self.writer.lock().await;
+            let frame = encode_xudp_packet(target, payload, writer.first_packet)?;
+            writer.first_packet = false;
+            if let Err(err) = writer.write_frame(&frame).await {
+                self.pending.remove(&wait);
+                self.close();
+                return Err(err);
             }
-            stream.read_packet().await
         }
-        .await;
-        match result {
-            Ok(response) => Ok(response),
-            Err(err) => {
-                self.closed.store(true, Ordering::Relaxed);
-                Err(err)
+        let request_id = wait.request_id;
+        let receiver = wait.receiver;
+        match timeout(Duration::from_secs(20), receiver).await {
+            Ok(Ok(result)) => result,
+            Ok(Err(_)) => {
+                self.pending.remove_by_id(&target_key, request_id);
+                self.close();
+                anyhow::bail!("VLESS XUDP worker closed before a response arrived")
+            }
+            Err(_) => {
+                self.pending.remove_by_id(&target_key, request_id);
+                anyhow::bail!("VLESS XUDP packet response timed out")
             }
         }
     }
@@ -1730,29 +1768,47 @@ impl VlessMuxWorker {
     fn is_closed(&self) -> bool {
         self.closed.load(Ordering::Relaxed)
     }
+
+    fn close(&self) {
+        self.closed.store(true, Ordering::Relaxed);
+        if let Ok(mut task) = self.read_task.lock() {
+            if let Some(task) = task.take() {
+                task.abort();
+            }
+        }
+        self.pending
+            .fail_all(anyhow::anyhow!("VLESS XUDP worker closed"));
+    }
 }
 
-impl VlessMuxStream {
+impl VlessMuxWriter {
     async fn write_frame(&mut self, frame: &[u8]) -> anyhow::Result<()> {
         if let Some(uuid) = self.vision_uuid {
             let uuid = self.vision_uuid_pending.then_some(uuid);
             self.vision_uuid_pending = false;
             let padded = xtls_padding(Some(frame), 0, uuid, true);
-            self.stream.write_all(&padded).await?;
+            self.writer.write_all(&padded).await?;
         } else {
-            self.stream.write_all(frame).await?;
+            self.writer.write_all(frame).await?;
         }
-        self.stream.flush().await?;
+        self.writer.flush().await?;
         Ok(())
     }
+}
 
-    async fn read_packet(&mut self) -> anyhow::Result<Vec<u8>> {
+impl VlessMuxReader {
+    async fn read_packet(&mut self) -> anyhow::Result<XudpPacket> {
         loop {
             if let Some(packet) = take_xudp_packet(&mut self.read_buffer)? {
                 return Ok(packet);
             }
-            let mut encrypted = vec![0_u8; SMALL_FLOW_COPY_BUFFER_SIZE];
-            let n = timeout(Duration::from_secs(20), self.stream.read(&mut encrypted)).await??;
+            let mut encrypted = PooledBuffer::with_capacity(SMALL_FLOW_COPY_BUFFER_SIZE);
+            encrypted.resize(SMALL_FLOW_COPY_BUFFER_SIZE, 0);
+            let n = timeout(
+                Duration::from_secs(20),
+                self.reader.read(&mut encrypted[..]),
+            )
+            .await??;
             if n == 0 {
                 anyhow::bail!("VLESS mux stream closed");
             }
@@ -1768,6 +1824,43 @@ impl VlessMuxStream {
     }
 }
 
+fn spawn_vless_mux_reader(
+    mut reader: VlessMuxReader,
+    pending: PacketSessionDemux,
+    closed: Arc<AtomicBool>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        loop {
+            let result = async {
+                if !reader.response_header_read {
+                    read_vless_response_header(&mut reader.reader).await?;
+                    reader.response_header_read = true;
+                }
+                reader.read_packet().await
+            }
+            .await;
+            match result {
+                Ok(packet) => {
+                    let delivered = if let Some(target) = packet.target.as_ref() {
+                        let key = packet_target_key(&target.host, target.port);
+                        pending.deliver(&key, Ok(packet.payload))
+                    } else {
+                        pending.deliver_next(Ok(packet.payload))
+                    };
+                    if !delivered {
+                        tracing::warn!("discarded VLESS XUDP packet without a matching waiter");
+                    }
+                }
+                Err(err) => {
+                    closed.store(true, Ordering::Relaxed);
+                    pending.fail_all(err);
+                    break;
+                }
+            }
+        }
+    })
+}
+
 fn encode_xudp_packet(
     target: &TargetAddress,
     payload: &[u8],
@@ -1781,9 +1874,9 @@ fn encode_xudp_packet(
     out.extend_from_slice(&0_u16.to_be_bytes());
     out.push(if first_packet { 1 } else { 2 });
     out.push(1);
+    out.push(2);
+    encode_port_then_address(target, &mut out)?;
     if first_packet {
-        out.push(2);
-        encode_port_then_address(target, &mut out)?;
         out.extend_from_slice(&[0_u8; 8]);
     }
     let meta_len = out.len() - 2;
@@ -1796,7 +1889,7 @@ fn encode_xudp_packet(
     Ok(out)
 }
 
-fn take_xudp_packet(buffer: &mut Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
+fn take_xudp_packet(buffer: &mut BytesMut) -> anyhow::Result<Option<XudpPacket>> {
     loop {
         if buffer.len() < 2 {
             return Ok(None);
@@ -1811,6 +1904,12 @@ fn take_xudp_packet(buffer: &mut Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
         let meta = &buffer[2..2 + meta_len];
         let status = meta[2];
         let option = meta[3];
+        let target = if meta.len() > 4 && meta[4] == 2 {
+            let (target, _) = decode_port_then_address(&meta[5..])?;
+            Some(target)
+        } else {
+            None
+        };
         let payload_len_offset = 2 + meta_len;
         let payload_len =
             u16::from_be_bytes([buffer[payload_len_offset], buffer[payload_len_offset + 1]])
@@ -1819,21 +1918,66 @@ fn take_xudp_packet(buffer: &mut Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
         if buffer.len() < frame_len {
             return Ok(None);
         }
-        let payload = buffer[payload_len_offset + 2..frame_len].to_vec();
-        buffer.drain(..frame_len);
+        let frame = buffer.split_to(frame_len);
+        let payload = frame[payload_len_offset + 2..].to_vec();
         if status == 4 {
             continue;
         }
         if option & 1 == 0 || payload.is_empty() {
             continue;
         }
-        return Ok(Some(payload));
+        return Ok(Some(XudpPacket { target, payload }));
     }
 }
 
 fn encode_port_then_address(target: &TargetAddress, out: &mut Vec<u8>) -> anyhow::Result<()> {
     out.extend_from_slice(&target.port.to_be_bytes());
     encode_address(&target.host, out)
+}
+
+fn decode_port_then_address(input: &[u8]) -> anyhow::Result<(TargetAddress, usize)> {
+    if input.len() < 3 {
+        anyhow::bail!("XUDP target address is truncated");
+    }
+    let port = u16::from_be_bytes([input[0], input[1]]);
+    let (host, address_len) = decode_address(&input[2..])?;
+    Ok((TargetAddress { host, port }, address_len + 2))
+}
+
+fn decode_address(input: &[u8]) -> anyhow::Result<(String, usize)> {
+    let Some(atyp) = input.first().copied() else {
+        anyhow::bail!("VLESS address is empty");
+    };
+    match atyp {
+        1 => {
+            if input.len() < 5 {
+                anyhow::bail!("VLESS IPv4 address is truncated");
+            }
+            Ok((
+                Ipv4Addr::new(input[1], input[2], input[3], input[4]).to_string(),
+                5,
+            ))
+        }
+        2 => {
+            if input.len() < 2 {
+                anyhow::bail!("VLESS domain address is truncated");
+            }
+            let len = input[1] as usize;
+            if input.len() < 2 + len {
+                anyhow::bail!("VLESS domain address is truncated");
+            }
+            Ok((String::from_utf8(input[2..2 + len].to_vec())?, 2 + len))
+        }
+        3 => {
+            if input.len() < 17 {
+                anyhow::bail!("VLESS IPv6 address is truncated");
+            }
+            let mut octets = [0_u8; 16];
+            octets.copy_from_slice(&input[1..17]);
+            Ok((Ipv6Addr::from(octets).to_string(), 17))
+        }
+        other => anyhow::bail!("invalid VLESS address type {other}"),
+    }
 }
 
 fn encode_address(host: &str, out: &mut Vec<u8>) -> anyhow::Result<()> {
@@ -3026,12 +3170,45 @@ mod tests {
             host: "8.8.8.8".to_string(),
             port: 53,
         };
-        let mut buffer = encode_xudp_packet(&target, b"reply", true).unwrap();
+        let frame = encode_xudp_packet(&target, b"reply", true).unwrap();
+        let mut buffer = BytesMut::from(frame.as_slice());
 
-        let payload = take_xudp_packet(&mut buffer).unwrap().unwrap();
+        let packet = take_xudp_packet(&mut buffer).unwrap().unwrap();
 
-        assert_eq!(&payload, b"reply");
+        assert_eq!(&packet.payload, b"reply");
+        assert_eq!(packet.target.as_ref().unwrap(), &target);
         assert!(buffer.is_empty());
+    }
+
+    #[test]
+    fn xudp_followup_packet_preserves_target_metadata() {
+        let target = TargetAddress {
+            host: "dns.google".to_string(),
+            port: 53,
+        };
+        let packet = encode_xudp_packet(&target, b"reply", false).unwrap();
+        let meta_len = u16::from_be_bytes([packet[0], packet[1]]) as usize;
+        let mut buffer = BytesMut::from(packet.as_slice());
+
+        assert!(meta_len > 4);
+        let decoded = take_xudp_packet(&mut buffer).unwrap().unwrap();
+
+        assert_eq!(decoded.target.as_ref().unwrap(), &target);
+        assert_eq!(&decoded.payload, b"reply");
+    }
+
+    #[test]
+    fn xudp_reader_keeps_targetless_packet_for_fifo_fallback() {
+        let mut buffer = BytesMut::new();
+        buffer.extend_from_slice(&4_u16.to_be_bytes());
+        buffer.extend_from_slice(&[0, 0, 2, 1]);
+        buffer.extend_from_slice(&5_u16.to_be_bytes());
+        buffer.extend_from_slice(b"reply");
+
+        let packet = take_xudp_packet(&mut buffer).unwrap().unwrap();
+
+        assert!(packet.target.is_none());
+        assert_eq!(&packet.payload, b"reply");
     }
 
     #[tokio::test]

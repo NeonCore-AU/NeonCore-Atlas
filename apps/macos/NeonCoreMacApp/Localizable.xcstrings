@@ -1656,6 +1656,75 @@
           }
         }
       }
+    },
+    "log.manual_node_added": {
+      "comment": "Shown after a manual node is saved.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual node added"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已添加手动节点"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Manual node added~~~~]"
+          }
+        }
+      }
+    },
+    "log.manual_node_invalid": {
+      "comment": "Shown when a manual node form or URI is invalid.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual node configuration is invalid"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手动节点配置无效"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Manual node configuration is invalid~~~~]"
+          }
+        }
+      }
+    },
+    "log.manual_node_removed": {
+      "comment": "Shown after a node is removed from the local node list.",
+      "localizations": {
+        "en-AU": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Node removed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "节点已移除"
+          }
+        },
+        "en-XA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[Node removed~~~~]"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

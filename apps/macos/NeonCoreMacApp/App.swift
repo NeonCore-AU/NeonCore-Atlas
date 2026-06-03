@@ -65,6 +65,9 @@ private final class NeonCoreStore: ObservableObject {
     @Published var directBytesOut = 0
     @Published var lastLatencyRun = "--"
     @Published var localProxyPort = 19091
+    @Published var showingManualNodeEditor = false
+    @Published var manualNodeDraft = ManualNodeDraft()
+    @Published var kernelCapabilities = KernelCapabilitySchema.fallback
     @Published var logs: [NeonCoreLog] = [
         .init(level: "info", messageKey: "log.app_ready"),
     ]
@@ -83,6 +86,7 @@ private final class NeonCoreStore: ObservableObject {
         nodes = PersistedStore.loadNodes()
         profiles = PersistedStore.loadProfiles()
         activeNodeID = nodes.first?.id
+        kernelCapabilities = engine.loadCapabilities() ?? .fallback
     }
 
     var activeNode: NeonCoreNode? {
@@ -121,6 +125,40 @@ private final class NeonCoreStore: ObservableObject {
         } catch {
             log("subscription.import.error_failed", level: "warn")
         }
+    }
+
+    func addManualNode() {
+        do {
+            let node = try manualNodeDraft.makeNode()
+            upsert(node: node)
+            manualNodeDraft = ManualNodeDraft()
+            showingManualNodeEditor = false
+            log("log.manual_node_added")
+        } catch {
+            AppRuntime.appendDiagnostic("manual node rejected: \(error)")
+            log("log.manual_node_invalid", level: "warn")
+        }
+    }
+
+    func importManualNodeURI() {
+        do {
+            let node = try manualNodeDraft.makeNodeFromURI()
+            upsert(node: node)
+            manualNodeDraft = ManualNodeDraft()
+            showingManualNodeEditor = false
+            log("log.manual_node_added")
+        } catch {
+            AppRuntime.appendDiagnostic("manual node URI rejected: \(error)")
+            log("log.manual_node_invalid", level: "warn")
+        }
+    }
+
+    func removeNode(_ node: NeonCoreNode) {
+        nodes.removeAll { $0.id == node.id }
+        if activeNodeID == node.id {
+            activeNodeID = nodes.first?.id
+        }
+        log("log.manual_node_removed")
     }
 
     func testLatency() async {
@@ -196,7 +234,7 @@ private final class NeonCoreStore: ObservableObject {
             return "log.engine_start_failed"
         case .proxyPreflightFailed:
             return "log.proxy_preflight_failed"
-        case .invalidURL, .subscriptionFailed, .systemProxyFailed, .tunBridgeMissing, .tunBridgeFailed, .tunRouteConflict:
+        case .invalidURL, .subscriptionFailed, .systemProxyFailed, .tunBridgeMissing, .tunBridgeFailed, .tunRouteConflict, .invalidManualNode:
             return "log.engine_start_failed"
         }
     }
@@ -208,6 +246,17 @@ private final class NeonCoreStore: ObservableObject {
         log("log.disconnected")
     }
 
+    private func upsert(node: NeonCoreNode) {
+        if let index = nodes.firstIndex(where: { $0.id == node.id }) {
+            nodes[index] = node
+        } else {
+            nodes.append(node)
+        }
+        activeNodeID = node.id
+        if profiles.isEmpty {
+            profiles = [.init(name: "Manual Nodes", detail: "\(nodes.count) nodes")]
+        }
+    }
 }
 
 private struct NeonCoreNode: Identifiable, Codable {
@@ -231,6 +280,569 @@ private struct NeonCoreNode: Identifiable, Codable {
             return !userID.isEmpty
         }
         return true
+    }
+}
+
+private enum ManualNodeProtocol: String, CaseIterable, Identifiable {
+    case vless
+    case hysteria2
+    case anytls
+    case shadowsocks
+    case shadowsocksr
+    case http
+    case direct
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .vless: "VLESS"
+        case .hysteria2: "Hysteria2"
+        case .anytls: "AnyTLS"
+        case .shadowsocks: "Shadowsocks"
+        case .shadowsocksr: "SSR / ShadowsocksR"
+        case .http: "HTTP"
+        case .direct: "Direct"
+        }
+    }
+
+    var credentialLabel: String {
+        switch self {
+        case .vless: "UUID"
+        case .hysteria2: "Auth"
+        case .anytls: "Password"
+        case .shadowsocks: "Password"
+        case .shadowsocksr: "Password"
+        case .http: "Username"
+        case .direct: "Credential"
+        }
+    }
+
+    var defaultPort: Int {
+        switch self {
+        case .vless, .anytls: 443
+        case .hysteria2: 443
+        case .shadowsocks: 8388
+        case .shadowsocksr: 8388
+        case .http: 8080
+        case .direct: 0
+        }
+    }
+}
+
+private struct ManualNodeDraft {
+    var uri = ""
+    var name = ""
+    var protocolName: ManualNodeProtocol = .vless
+    var host = ""
+    var port = "443"
+    var credential = ""
+    var security = "reality"
+    var transport = "tcp"
+    var flow = "xtls-rprx-vision"
+    var sni = ""
+    var publicKey = ""
+    var shortID = ""
+    var fingerprint = "chrome"
+    var transportHost = ""
+    var transportPath = "/"
+    var serviceName = "Tun"
+    var authority = ""
+    var xhttpMode = "auto"
+    var httpVersion = "auto"
+    var scMaxEachPostBytes = "262144"
+    var scMinPostsIntervalMs = "0"
+    var xmuxMaxConcurrency = "0"
+    var xmuxMaxConnections = "0"
+    var xmuxCMaxReuseTimes = "0"
+    var xmuxHMaxRequestTimes = "0"
+    var xmuxHMaxReusableSecs = "0"
+    var method = "2022-blake3-aes-256-gcm"
+    var plugin = ""
+    var tcpFastOpen = false
+    var udpRelay = true
+    var udpOverTcp = false
+    var ssObfuscation = "none"
+    var ssObfuscationTLS = false
+    var ssPluginMode = "websocket"
+    var ssPluginHost = ""
+    var ssPluginPath = "/"
+    var ssPluginHeaders = ""
+    var ssPluginTLS = false
+    var ssPluginMux = true
+    var ssPluginSkipCertVerify = false
+    var ssPluginFingerprint = ""
+    var ssPluginCertificate = ""
+    var ssPluginPrivateKey = ""
+    var ssPluginECHConfig = ""
+    var ssPluginECHQueryServerName = ""
+    var ssPluginHTTPUpgrade = false
+    var ssPluginHTTPUpgradeFastOpen = false
+    var kcpKey = ""
+    var kcpCrypt = "aes"
+    var kcpMode = "fast"
+    var kcpConn = "1"
+    var kcpAutoExpire = "0"
+    var kcpScavengeTTL = "600"
+    var kcpMTU = "1350"
+    var kcpRateLimit = "0"
+    var kcpSndWnd = "128"
+    var kcpRcvWnd = "512"
+    var kcpDataShard = "10"
+    var kcpParityShard = "3"
+    var kcpDSCP = "0"
+    var kcpNoDelay = "0"
+    var kcpInterval = "50"
+    var kcpResend = "0"
+    var kcpSockBuf = "4194304"
+    var kcpSmuxVer = "1"
+    var kcpSmuxBuf = "4194304"
+    var kcpFrameSize = "8192"
+    var kcpStreamBuf = "2097152"
+    var kcpKeepAlive = "10"
+    var kcpNoComp = false
+    var kcpAckNoDelay = false
+    var kcpNoCongestion = false
+    var shadowTLSVersion = "2"
+    var shadowTLSPassword = ""
+    var shadowTLSHost = ""
+    var shadowTLSALPN = ""
+    var ssrProtocol = "origin"
+    var ssrProtocolParam = ""
+    var obfs = ""
+    var obfsPassword = ""
+    var obfsHost = ""
+    var mport = ""
+    var udpTimeoutMs = "30000"
+    var bbrProfile = "auto"
+    var idleSessionTimeout = "30s"
+    var minIdleSession = "0"
+    var insecure = false
+
+    mutating func applyProtocolDefaults() {
+        port = String(protocolName.defaultPort)
+        switch protocolName {
+        case .vless:
+            security = "reality"
+            transport = "tcp"
+            flow = "xtls-rprx-vision"
+            transportHost = ""
+            transportPath = "/"
+            serviceName = "Tun"
+            authority = ""
+            xhttpMode = "auto"
+            httpVersion = "auto"
+            scMaxEachPostBytes = "262144"
+            scMinPostsIntervalMs = "0"
+            xmuxMaxConcurrency = "0"
+            xmuxMaxConnections = "0"
+            xmuxCMaxReuseTimes = "0"
+            xmuxHMaxRequestTimes = "0"
+            xmuxHMaxReusableSecs = "0"
+        case .hysteria2:
+            security = ""
+            transport = ""
+            flow = ""
+            mport = ""
+            udpTimeoutMs = "30000"
+            bbrProfile = "auto"
+        case .anytls:
+            security = "tls"
+            transport = "tcp"
+            flow = ""
+            idleSessionTimeout = "30s"
+            minIdleSession = "0"
+        case .shadowsocks:
+            security = ""
+            transport = ""
+            flow = ""
+            method = "2022-blake3-aes-256-gcm"
+            tcpFastOpen = false
+            udpRelay = true
+            udpOverTcp = false
+            plugin = ""
+            ssObfuscation = "none"
+            ssObfuscationTLS = false
+            applyPluginDefaults()
+        case .shadowsocksr:
+            security = ""
+            transport = ""
+            flow = ""
+            method = "aes-256-cfb"
+            tcpFastOpen = false
+            udpRelay = true
+            udpOverTcp = false
+            ssrProtocol = "origin"
+            obfs = "plain"
+            obfsHost = ""
+        case .http:
+            security = ""
+            transport = "tcp"
+            flow = ""
+        case .direct:
+            security = "none"
+            transport = "tcp"
+            flow = ""
+        }
+    }
+
+    mutating func applyPluginDefaults() {
+        let normalizedPlugin = plugin.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch normalizedPlugin {
+        case "v2ray-plugin":
+            ssObfuscation = "none"
+            ssPluginMode = "websocket"
+            if ssPluginPath.isEmpty { ssPluginPath = "/" }
+            ssPluginMux = true
+        case "gost", "gost-plugin":
+            ssObfuscation = "none"
+            ssPluginMode = "websocket"
+            if ssPluginPath.isEmpty { ssPluginPath = "/" }
+            ssPluginMux = true
+        case "shadow-tls", "shadow_tls":
+            ssObfuscation = "none"
+            if shadowTLSVersion.isEmpty { shadowTLSVersion = "2" }
+        case "cloak", "ck-client":
+            ssObfuscation = "none"
+            if ssPluginCertificate.isEmpty { ssPluginCertificate = "ck-client" }
+        case "kcptun":
+            ssObfuscation = "none"
+            if kcpCrypt.isEmpty { kcpCrypt = "aes" }
+            if kcpMode.isEmpty { kcpMode = "fast" }
+        case "obfs-local", "simple-obfs", "simple_obfs":
+            if ssObfuscation == "none" { ssObfuscation = "http" }
+        default:
+            ssObfuscation = "none"
+            break
+        }
+        if !normalizedPlugin.isEmpty && normalizedPlugin != "none" {
+            udpOverTcp = true
+        }
+    }
+
+    mutating func applySSRObfsDefaults() {
+        switch obfs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "http_simple", "http_post", "tls1.2_ticket_auth", "tls1.2_ticket_fastauth":
+            if obfsHost.isEmpty { obfsHost = host }
+        default:
+            break
+        }
+    }
+
+    var supportsCertificateVerificationSkip: Bool {
+        switch protocolName {
+        case .vless, .hysteria2, .anytls:
+            true
+        case .shadowsocks, .shadowsocksr, .http, .direct:
+            false
+        }
+    }
+
+    var hasUnsupportedPendingSelection: Bool {
+        guard protocolName == .shadowsocks else { return false }
+        let normalizedPlugin = plugin.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedMode = ssPluginMode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch normalizedPlugin {
+        case "v2ray-plugin", "gost", "gost-plugin":
+            return !normalizedMode.isEmpty && normalizedMode != "websocket"
+        case "external-sip003", "external_sip003", "sip003":
+            return ssPluginCertificate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        default:
+            return false
+        }
+    }
+
+    var shadowsocksPluginForcesUoT: Bool {
+        false
+    }
+
+    var shouldShowShadowsocksObfuscationTLS: Bool {
+        guard protocolName == .shadowsocks,
+              plugin.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return false }
+        let normalized = ssObfuscation.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return ["websocket", "ws", "httpupgrade", "http_upgrade", "h2", "xhttp"].contains(normalized)
+    }
+
+    var shouldShowShadowsocksXHTTPFields: Bool {
+        guard protocolName == .shadowsocks,
+              plugin.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return false }
+        return ssObfuscation.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "xhttp"
+    }
+
+    func makeNodeFromURI() throws -> NeonCoreNode {
+        guard let node = SubscriptionParser.parseSharedNode(uri.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            throw NeonCoreError.invalidManualNode
+        }
+        return node
+    }
+
+    func makeNode() throws -> NeonCoreNode {
+        let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedHost.isEmpty else { throw NeonCoreError.invalidManualNode }
+        guard let portValue = Int(port.trimmingCharacters(in: .whitespacesAndNewlines)),
+              (protocolName == .direct && portValue >= 0) || (portValue > 0 && portValue <= 65535)
+        else { throw NeonCoreError.invalidManualNode }
+
+        var query: [String: String] = [:]
+        let trimmedSecurity = security.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTransport = transport.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedFlow = flow.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSNI = sni.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPublicKey = publicKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedShortID = shortID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedFingerprint = fingerprint.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTransportHost = transportHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTransportPath = transportPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedServiceName = serviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedAuthority = authority.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedXhttpMode = xhttpMode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedHTTPVersion = httpVersion.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedScMaxEachPostBytes = scMaxEachPostBytes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedScMinPostsIntervalMs = scMinPostsIntervalMs.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedXmuxMaxConcurrency = xmuxMaxConcurrency.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedXmuxMaxConnections = xmuxMaxConnections.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedXmuxCMaxReuseTimes = xmuxCMaxReuseTimes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedXmuxHMaxRequestTimes = xmuxHMaxRequestTimes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedXmuxHMaxReusableSecs = xmuxHMaxReusableSecs.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedMethod = method.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPlugin = plugin.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSSObfuscation = ssObfuscation.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSSRProtocol = ssrProtocol.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSSRProtocolParam = ssrProtocolParam.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedObfs = obfs.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedObfsPassword = obfsPassword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedObfsHost = obfsHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedMport = mport.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedUDPTimeoutMs = udpTimeoutMs.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedBBRProfile = bbrProfile.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedIdleSessionTimeout = idleSessionTimeout.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedMinIdleSession = minIdleSession.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        switch protocolName {
+        case .vless:
+            guard !credential.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw NeonCoreError.invalidManualNode }
+            set(&query, "security", trimmedSecurity)
+            set(&query, "type", trimmedTransport)
+            set(&query, "flow", trimmedFlow)
+            set(&query, "sni", trimmedSNI)
+            set(&query, "pbk", trimmedPublicKey)
+            set(&query, "sid", trimmedShortID)
+            set(&query, "fp", trimmedFingerprint)
+            set(&query, "host", trimmedTransportHost)
+            set(&query, "path", trimmedTransportPath)
+            set(&query, "serviceName", trimmedServiceName)
+            set(&query, "authority", trimmedAuthority)
+            set(&query, "mode", trimmedXhttpMode)
+            set(&query, "httpVersion", trimmedHTTPVersion)
+            set(&query, "scMaxEachPostBytes", trimmedScMaxEachPostBytes)
+            set(&query, "scMinPostsIntervalMs", trimmedScMinPostsIntervalMs)
+            set(&query, "xmuxMaxConcurrency", trimmedXmuxMaxConcurrency)
+            set(&query, "xmuxMaxConnections", trimmedXmuxMaxConnections)
+            set(&query, "xmuxCMaxReuseTimes", trimmedXmuxCMaxReuseTimes)
+            set(&query, "xmuxHMaxRequestTimes", trimmedXmuxHMaxRequestTimes)
+            set(&query, "xmuxHMaxReusableSecs", trimmedXmuxHMaxReusableSecs)
+        case .hysteria2:
+            guard !credential.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw NeonCoreError.invalidManualNode }
+            set(&query, "sni", trimmedSNI)
+            set(&query, "obfs", trimmedObfs)
+            set(&query, "obfs-password", trimmedObfsPassword)
+            set(&query, "mport", trimmedMport)
+            set(&query, "udp-timeout-ms", trimmedUDPTimeoutMs)
+            set(&query, "bbr-profile", trimmedBBRProfile)
+        case .anytls:
+            guard !credential.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw NeonCoreError.invalidManualNode }
+            set(&query, "sni", trimmedSNI)
+            set(&query, "idle_session_timeout", trimmedIdleSessionTimeout)
+            set(&query, "min_idle_session", trimmedMinIdleSession)
+        case .shadowsocks:
+            guard !credential.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw NeonCoreError.invalidManualNode }
+            set(&query, "method", trimmedMethod)
+            setBool(&query, "tcp-fast-open", tcpFastOpen)
+            query["udp-relay"] = udpRelay ? "true" : "false"
+            setBool(&query, "udp-over-tcp", udpOverTcp || shadowsocksPluginForcesUoT)
+            set(&query, "plugin", trimmedPlugin)
+            set(&query, "plugin_opts", shadowsocksPluginOptionsValue())
+            if trimmedPlugin.isEmpty {
+                set(&query, "obfuscation", trimmedSSObfuscation)
+                if shouldShowShadowsocksObfuscationTLS {
+                    query["obfuscation-tls"] = ssObfuscationTLS ? "true" : "false"
+                    if trimmedSSObfuscation.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "h2" && !ssObfuscationTLS {
+                        query["h2c"] = "true"
+                    }
+                }
+                if shouldShowShadowsocksXHTTPFields {
+                    set(&query, "plugin_opts", shadowsocksXHTTPObfuscationOptionsValue())
+                }
+            }
+            set(&query, "obfs-host", trimmedObfsHost)
+        case .shadowsocksr:
+            guard !credential.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw NeonCoreError.invalidManualNode }
+            set(&query, "method", trimmedMethod)
+            setBool(&query, "tcp-fast-open", tcpFastOpen)
+            query["udp-relay"] = udpRelay ? "true" : "false"
+            set(&query, "protocol", trimmedSSRProtocol)
+            set(&query, "protocol_param", trimmedSSRProtocolParam)
+            set(&query, "obfs", trimmedObfs)
+            set(&query, "obfs_param", ssrObfsParameterValue())
+        case .http:
+            break
+        case .direct:
+            break
+        }
+        if supportsCertificateVerificationSkip && insecure {
+            query["insecure"] = "true"
+            query["skip-cert-verify"] = "true"
+        }
+
+        let displayName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalName = displayName.isEmpty ? "\(protocolName.title) \(trimmedHost)" : displayName
+        return NeonCoreNode(
+            name: finalName,
+            region: SubscriptionParser.region(from: finalName),
+            host: trimmedHost,
+            port: portValue,
+            userID: credential.trimmingCharacters(in: .whitespacesAndNewlines),
+            protocolName: protocolName.rawValue,
+            query: query,
+            latency: nil,
+            tags: SubscriptionParser.tagsFor(scheme: protocolName.rawValue, query: query)
+        )
+    }
+
+    private func shadowsocksPluginOptionsValue() -> String {
+        let normalizedPlugin = plugin.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        var options: [String] = []
+
+        func append(_ key: String, _ value: String) {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            options.append("\(escapePluginOption(key))=\(escapePluginOption(trimmed))")
+        }
+
+        func appendFlag(_ key: String, _ enabled: Bool) {
+            guard enabled else { return }
+            options.append(escapePluginOption(key))
+        }
+
+        func appendBool(_ key: String, _ enabled: Bool) {
+            guard enabled else { return }
+            append(key, "true")
+        }
+
+        switch normalizedPlugin {
+        case "obfs-local", "simple-obfs", "simple_obfs":
+            append("obfs", ssObfuscation == "none" ? "" : ssObfuscation)
+            append("obfs-host", obfsHost)
+        case "v2ray-plugin":
+            append("mode", ssPluginMode)
+            append("host", ssPluginHost)
+            append("path", ssPluginPath)
+            appendBool("tls", ssPluginTLS)
+        case "gost", "gost-plugin":
+            append("mode", ssPluginMode)
+            append("host", ssPluginHost)
+            append("path", ssPluginPath)
+            appendBool("tls", ssPluginTLS)
+        case "shadow-tls", "shadow_tls":
+            append("host", shadowTLSHost)
+            append("password", shadowTLSPassword)
+            append("version", shadowTLSVersion)
+            append("alpn", shadowTLSALPN)
+            appendBool("skip-cert-verify", ssPluginSkipCertVerify)
+        case "cloak", "ck-client", "external-sip003", "external_sip003", "sip003":
+            let defaultProgram = normalizedPlugin == "cloak" || normalizedPlugin == "ck-client" ? "ck-client" : ""
+            append("program", ssPluginCertificate.isEmpty ? defaultProgram : ssPluginCertificate)
+            let rawOptions = ssPluginHeaders.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !rawOptions.isEmpty {
+                options.append(rawOptions)
+            }
+        case "kcptun":
+            append("key", kcpKey)
+            append("crypt", kcpCrypt)
+            append("mode", kcpMode)
+            append("conn", kcpConn)
+            append("autoexpire", kcpAutoExpire)
+            append("scavengettl", kcpScavengeTTL)
+            append("mtu", kcpMTU)
+            append("ratelimit", kcpRateLimit)
+            append("sndwnd", kcpSndWnd)
+            append("rcvwnd", kcpRcvWnd)
+            append("datashard", kcpDataShard)
+            append("parityshard", kcpParityShard)
+            append("dscp", kcpDSCP)
+            appendBool("nocomp", kcpNoComp)
+            appendBool("acknodelay", kcpAckNoDelay)
+            append("nodelay", kcpNoDelay)
+            append("interval", kcpInterval)
+            append("resend", kcpResend)
+            appendBool("nc", kcpNoCongestion)
+            append("sockbuf", kcpSockBuf)
+            append("smuxver", kcpSmuxVer)
+            append("smuxbuf", kcpSmuxBuf)
+            append("framesize", kcpFrameSize)
+            append("streambuf", kcpStreamBuf)
+            append("keepalive", kcpKeepAlive)
+        default:
+            appendFlag("", false)
+        }
+
+        return options.joined(separator: ";")
+    }
+
+    private func shadowsocksXHTTPObfuscationOptionsValue() -> String {
+        var options: [String] = []
+
+        func append(_ key: String, _ value: String) {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            options.append("\(escapePluginOption(key))=\(escapePluginOption(trimmed))")
+        }
+
+        append("mode", xhttpMode)
+        append("httpVersion", httpVersion)
+        append("scMaxEachPostBytes", scMaxEachPostBytes)
+        append("scMinPostsIntervalMs", scMinPostsIntervalMs)
+        if ssPluginSkipCertVerify {
+            append("skip-cert-verify", "true")
+        }
+
+        return options.joined(separator: ";")
+    }
+
+    private func ssrObfsParameterValue() -> String {
+        let normalizedPlugin = obfs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let hostValue = obfsHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        let headerValue = ssPluginHeaders.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch normalizedPlugin {
+        case "http_simple", "http_post":
+            if headerValue.isEmpty { return hostValue }
+            return "\(hostValue)#\(headerValue)"
+        case "tls1.2_ticket_auth", "tls1.2_ticket_fastauth":
+            return hostValue
+        default:
+            return hostValue
+        }
+    }
+
+    private func escapePluginOption(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: ";", with: "\\;")
+            .replacingOccurrences(of: "=", with: "\\=")
+    }
+
+    private func set(_ query: inout [String: String], _ key: String, _ value: String) {
+        if !value.isEmpty {
+            query[key] = value
+        }
+    }
+
+    private func setBool(_ query: inout [String: String], _ key: String, _ value: Bool) {
+        if value {
+            query[key] = "true"
+        }
     }
 }
 
@@ -269,6 +881,56 @@ private struct KernelResolvedServerOutput: Decodable {
         case server
         case serverPort = "server_port"
         case addresses
+    }
+}
+
+private struct KernelCapabilitySchema {
+    var shadowsocksPlugins: [String]
+    var shadowsocksObfuscation: [String]
+    var shadowsocksPluginModes: [String]
+    var shadowTLSVersions: [String]
+    var xhttpModes: [String]
+    var httpVersions: [String]
+    var ssrObfs: [String]
+
+    static let fallback = KernelCapabilitySchema(
+        shadowsocksPlugins: ["", "kcptun", "v2ray-plugin", "gost", "gost-plugin", "shadow-tls", "cloak", "external-sip003"],
+        shadowsocksObfuscation: ["none", "http", "tls", "ssl", "h1", "h2", "wss", "websocket", "httpupgrade", "xhttp"],
+        shadowsocksPluginModes: ["websocket"],
+        shadowTLSVersions: ["1", "2", "3"],
+        xhttpModes: ["auto", "stream-one", "stream-up", "packet-up"],
+        httpVersions: ["auto", "1.1", "h2", "h3"],
+        ssrObfs: ["plain", "http_simple", "http_post", "random_head", "tls1.2_ticket_auth", "tls1.2_ticket_fastauth"]
+    )
+
+    static func parse(_ data: Data) -> KernelCapabilitySchema? {
+        guard
+            let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let shadowsocks = root["shadowsocks"] as? [String: Any],
+            let shadowsocksr = root["shadowsocksr"] as? [String: Any]
+        else { return nil }
+
+        let fallback = KernelCapabilitySchema.fallback
+        let pluginMap = shadowsocks["plugins"] as? [String: Any] ?? [:]
+        let orderedPlugins = fallback.shadowsocksPlugins.filter { plugin in
+            plugin.isEmpty || pluginMap.keys.contains(plugin)
+        }
+        let pluginModes = pluginMap.values.compactMap { value -> [String]? in
+            (value as? [String: Any])?["modes"] as? [String]
+        }.flatMap { $0 }
+        let sortedPluginModes = Array(Set(pluginModes)).sorted()
+        let shadowTLSVersions = (pluginMap["shadow-tls"] as? [String: Any])?["versions"] as? [String]
+        let xhttp = shadowsocks["xhttp"] as? [String: Any]
+
+        return KernelCapabilitySchema(
+            shadowsocksPlugins: orderedPlugins.isEmpty ? fallback.shadowsocksPlugins : orderedPlugins,
+            shadowsocksObfuscation: shadowsocks["obfuscation"] as? [String] ?? fallback.shadowsocksObfuscation,
+            shadowsocksPluginModes: sortedPluginModes.isEmpty ? fallback.shadowsocksPluginModes : sortedPluginModes,
+            shadowTLSVersions: shadowTLSVersions ?? fallback.shadowTLSVersions,
+            xhttpModes: xhttp?["modes"] as? [String] ?? fallback.xhttpModes,
+            httpVersions: xhttp?["http_versions"] as? [String] ?? fallback.httpVersions,
+            ssrObfs: shadowsocksr["obfs"] as? [String] ?? fallback.ssrObfs
+        )
     }
 }
 
@@ -354,7 +1016,7 @@ private enum SubscriptionParser {
         let decoded = decodeSubscriptionBody(body)
         return decoded
             .split(whereSeparator: \.isNewline)
-            .compactMap { parseNode(String($0)) }
+            .compactMap { parseSharedNode(String($0)) }
             .filter { $0.host != "127.0.0.1" && $0.port > 1 }
     }
 
@@ -370,9 +1032,12 @@ private enum SubscriptionParser {
         return body
     }
 
-    private static func parseNode(_ line: String) -> NeonCoreNode? {
+    static func parseSharedNode(_ line: String) -> NeonCoreNode? {
         if line.lowercased().hasPrefix("ss://") {
             return parseShadowsocksNode(line)
+        }
+        if line.lowercased().hasPrefix("ssr://") {
+            return parseShadowsocksRNode(line)
         }
         guard let components = URLComponents(string: line),
               let scheme = components.scheme?.lowercased(),
@@ -409,10 +1074,53 @@ private enum SubscriptionParser {
         )
     }
 
+    private static func parseShadowsocksRNode(_ line: String) -> NeonCoreNode? {
+        let encoded = String(line.dropFirst("ssr://".count))
+        guard let decoded = decodeUrlSafeBase64(encoded) else { return nil }
+        let mainAndQuery = decoded.split(separator: "/?", maxSplits: 1).map(String.init)
+        let main = mainAndQuery.first ?? decoded
+        let queryText = mainAndQuery.count > 1 ? mainAndQuery[1] : ""
+        let fields = main.split(separator: ":", maxSplits: 5).map(String.init)
+        guard fields.count == 6,
+              let port = Int(fields[1]),
+              let password = decodeUrlSafeBase64(fields[5])
+        else { return nil }
+        let query = parseQueryString(queryText)
+        var parameters: [String: String] = [
+            "method": fields[3],
+            "protocol": fields[2],
+            "obfs": fields[4]
+        ]
+        if let protocolParam = query["protoparam"].flatMap(decodeUrlSafeBase64), !protocolParam.isEmpty {
+            parameters["protocol_param"] = protocolParam
+        }
+        if let obfsParam = query["obfsparam"].flatMap(decodeUrlSafeBase64), !obfsParam.isEmpty {
+            parameters["obfs_param"] = obfsParam
+        }
+        let decodedRemark = query["remarks"].flatMap { decodeUrlSafeBase64($0) }
+        let name = decodedRemark?.isEmpty == false ? decodedRemark! : "SSR \(fields[0])"
+        return NeonCoreNode(
+            name: name,
+            region: region(from: name),
+            host: fields[0],
+            port: port,
+            userID: password,
+            protocolName: "ssr",
+            query: parameters,
+            latency: nil,
+            tags: tagsFor(scheme: "ssr", query: parameters)
+        )
+    }
+
     private static func parseShadowsocksNode(_ line: String) -> NeonCoreNode? {
-        let fragment = URLComponents(string: line)?.percentEncodedFragment?.removingPercentEncoding
+        let linkComponents = URLComponents(string: line)
+        let fragment = linkComponents?.percentEncodedFragment?.removingPercentEncoding
+        let extraQuery = Dictionary(uniqueKeysWithValues: (linkComponents?.queryItems ?? []).compactMap { item in
+            item.value.map { (item.name, $0) }
+        })
         let withoutScheme = String(line.dropFirst("ss://".count))
-        let body = withoutScheme.split(separator: "#", maxSplits: 1).first.map(String.init) ?? withoutScheme
+        let withoutFragment = withoutScheme.split(separator: "#", maxSplits: 1).first.map(String.init) ?? withoutScheme
+        let body = withoutFragment.split(separator: "?", maxSplits: 1).first.map(String.init) ?? withoutFragment
         let decodedBody: String
         if body.contains("@") {
             decodedBody = body
@@ -441,20 +1149,42 @@ private enum SubscriptionParser {
             port: port,
             userID: password,
             protocolName: "shadowsocks",
-            query: ["method": method],
+            query: extraQuery.merging(["method": method]) { current, _ in current },
             latency: nil,
             tags: ["SS", method.uppercased()]
         )
     }
 
-    private static func tagsFor(scheme: String, query: [String: String]) -> [String] {
+    private static func decodeUrlSafeBase64(_ value: String) -> String? {
+        let normalized = value
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let padded = normalized + String(repeating: "=", count: (4 - normalized.count % 4) % 4)
+        guard let data = Data(base64Encoded: padded) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func parseQueryString(_ query: String) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: query.split(separator: "&").compactMap { pair in
+            let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
+            guard parts.count == 2 else { return nil }
+            let key = parts[0].removingPercentEncoding ?? parts[0]
+            let value = parts[1].removingPercentEncoding ?? parts[1]
+            return (key, value)
+        })
+    }
+
+    static func tagsFor(scheme: String, query: [String: String]) -> [String] {
         var tags = [scheme.uppercased()]
         if let security = query["security"], security != "none" { tags.append(security.uppercased()) }
         if query["flow"] != nil { tags.append("VISION") }
+        if let plugin = query["plugin"], !plugin.isEmpty { tags.append("PLUGIN") }
+        if let obfs = query["obfs"], obfs != "plain" { tags.append(obfs.uppercased()) }
         return tags
     }
 
-    private static func region(from name: String) -> String {
+    static func region(from name: String) -> String {
         let uppercased = name.uppercased()
         if uppercased.contains("🇦🇺") || uppercased.contains(" AU ") || uppercased.contains("[AU]") { return "AU" }
         if uppercased.contains("🇺🇸") || uppercased.contains(" US ") || uppercased.contains("[US]") { return "US" }
@@ -483,6 +1213,25 @@ private final class NeonCoreKernel {
 
     var isAvailable: Bool {
         binaryURL != nil
+    }
+
+    func loadCapabilities() -> KernelCapabilitySchema? {
+        guard let binaryURL else { return nil }
+        let process = Process()
+        let outputPipe = Pipe()
+        process.executableURL = binaryURL
+        process.arguments = ["capabilities"]
+        process.standardOutput = outputPipe
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+            let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            return KernelCapabilitySchema.parse(data)
+        } catch {
+            return nil
+        }
     }
 
     func start(node: NeonCoreNode, port: Int, fullTunnel: Bool) throws {
@@ -1034,6 +1783,7 @@ private enum NeonCoreError: Error {
     case tunBridgeMissing
     case tunBridgeFailed
     case tunRouteConflict
+    case invalidManualNode
 }
 
 struct ContentView: View {
@@ -1297,13 +2047,33 @@ private struct NodesPage: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            PageActions(titleKey: "nav.nodes", primaryKey: "profiles.action.import_subscription", primaryIcon: "square.and.arrow.down") {
-                store.selectedPage = .profiles
-            } secondaryKey: {
-                "nodes.action.test_latency"
-            } secondaryAction: {
-                Task { await store.testLatency() }
+            HStack {
+                Text("nav.nodes".localized)
+                    .font(.custom(NeonCoreTheme.fontName, size: 26).weight(.bold))
+                    .textCase(.uppercase)
+                Spacer()
+                Button {
+                    store.selectedPage = .profiles
+                } label: {
+                    Label("profiles.action.import_subscription".localized, systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(NeonSecondaryButtonStyle())
+                Button {
+                    Task { await store.testLatency() }
+                } label: {
+                    Label("nodes.action.test_latency".localized, systemImage: "timer")
+                }
+                .buttonStyle(NeonSecondaryButtonStyle())
+                Button {
+                    store.showingManualNodeEditor = true
+                } label: {
+                    Label("Add Node", systemImage: "plus")
+                }
+                .buttonStyle(NeonPrimaryButtonStyle(active: false))
             }
+            .padding(18)
+            .neonPanel()
+
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
                 ForEach(store.nodes) { node in
                     VStack(alignment: .leading, spacing: 12) {
@@ -1331,6 +2101,13 @@ private struct NodesPage: View {
                                 store.selectNode(node)
                             }
                             .buttonStyle(NeonSecondaryButtonStyle())
+                            Button {
+                                store.removeNode(node)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .frame(width: 16, height: 16)
+                            }
+                            .buttonStyle(NeonSecondaryButtonStyle())
                         }
                     }
                     .padding(18)
@@ -1341,6 +2118,612 @@ private struct NodesPage: View {
                 EmptyState(titleKey: "nodes.empty.title", descriptionKey: "nodes.empty.description")
                     .neonPanel()
             }
+        }
+        .sheet(isPresented: $store.showingManualNodeEditor) {
+            ManualNodeEditor(store: store)
+        }
+    }
+}
+
+private struct ManualNodeEditor: View {
+    @ObservedObject var store: NeonCoreStore
+
+    private let securityOptions = ["none", "tls", "reality"]
+    private let transportOptions = ["tcp", "ws", "grpc", "h2", "httpupgrade", "xhttp"]
+    private let fingerprintOptions = ["chrome", "edge", "firefox", "safari", "ios", "android", "randomized", "random", "none"]
+    private var xhttpModeOptions: [String] { store.kernelCapabilities.xhttpModes }
+    private var httpVersionOptions: [String] { store.kernelCapabilities.httpVersions }
+    private let methodOptions = [
+        "2022-blake3-aes-256-gcm",
+        "2022-blake3-aes-128-gcm",
+        "2022-blake3-chacha20-poly1305",
+        "2022-blake3-chacha8-poly1305",
+        "aes-256-gcm",
+        "aes-128-gcm",
+        "chacha20-ietf-poly1305",
+        "xchacha20-ietf-poly1305",
+        "aes-256-ccm",
+        "aes-128-ccm",
+        "aes-256-gcm-siv",
+        "aes-128-gcm-siv",
+        "sm4-gcm",
+        "sm4-ccm",
+        "none",
+        "table",
+        "rc4",
+        "rc4-md5",
+        "rc4-md5-6",
+        "salsa20",
+        "chacha20",
+        "chacha20-ietf",
+        "aes-256-cfb",
+        "aes-192-cfb",
+        "aes-128-cfb",
+        "aes-256-cfb1",
+        "aes-192-cfb1",
+        "aes-128-cfb1",
+        "aes-256-cfb8",
+        "aes-192-cfb8",
+        "aes-128-cfb8",
+        "aes-256-ctr",
+        "aes-192-ctr",
+        "aes-128-ctr",
+        "aes-256-ofb",
+        "aes-192-ofb",
+        "aes-128-ofb",
+        "bf-cfb",
+        "cast5-cfb",
+        "des-cfb",
+        "idea-cfb",
+        "rc2-cfb",
+        "seed-cfb",
+        "camellia-256-cfb",
+        "camellia-192-cfb",
+        "camellia-128-cfb",
+        "camellia-256-cfb1",
+        "camellia-192-cfb1",
+        "camellia-128-cfb1",
+        "camellia-256-cfb8",
+        "camellia-192-cfb8",
+        "camellia-128-cfb8",
+        "camellia-256-ctr",
+        "camellia-192-ctr",
+        "camellia-128-ctr",
+        "camellia-256-ofb",
+        "camellia-192-ofb",
+        "camellia-128-ofb"
+    ]
+    private var shadowsocksPluginOptions: [String] { store.kernelCapabilities.shadowsocksPlugins }
+    private var shadowsocksObfuscationOptions: [String] { store.kernelCapabilities.shadowsocksObfuscation }
+    private var shadowsocksPluginModeOptions: [String] { store.kernelCapabilities.shadowsocksPluginModes }
+    private let kcpCryptOptions = ["aes", "aes-128", "aes-128-gcm", "aes-192", "salsa20", "blowfish", "twofish", "cast5", "3des", "tea", "xtea", "xor", "none", "null"]
+    private let kcpModeOptions = ["fast3", "fast2", "fast", "normal", "manual"]
+    private var shadowTLSVersionOptions: [String] { store.kernelCapabilities.shadowTLSVersions }
+    private let ssrMethodOptions = [
+        "chacha20-ietf-poly1305",
+        "chacha20-poly1305",
+        "2022-blake3-aes-256-gcm",
+        "2022-blake3-aes-128-gcm",
+        "2022-blake3-chacha20-poly1305",
+        "none",
+        "table",
+        "rc4",
+        "rc4-md5",
+        "rc4-md5-6",
+        "salsa20",
+        "chacha20",
+        "chacha20-ietf",
+        "aes-256-cfb",
+        "aes-192-cfb",
+        "aes-128-cfb",
+        "aes-256-cfb1",
+        "aes-192-cfb1",
+        "aes-128-cfb1",
+        "aes-256-cfb8",
+        "aes-192-cfb8",
+        "aes-128-cfb8",
+        "aes-256-ctr",
+        "aes-192-ctr",
+        "aes-128-ctr",
+        "aes-256-ofb",
+        "aes-192-ofb",
+        "aes-128-ofb",
+        "bf-cfb",
+        "cast5-cfb",
+        "des-cfb",
+        "idea-cfb",
+        "rc2-cfb",
+        "seed-cfb",
+        "camellia-256-cfb",
+        "camellia-192-cfb",
+        "camellia-128-cfb",
+        "camellia-256-cfb1",
+        "camellia-192-cfb1",
+        "camellia-128-cfb1",
+        "camellia-256-cfb8",
+        "camellia-192-cfb8",
+        "camellia-128-cfb8",
+        "camellia-256-ctr",
+        "camellia-192-ctr",
+        "camellia-128-ctr",
+        "camellia-256-ofb",
+        "camellia-192-ofb",
+        "camellia-128-ofb"
+    ]
+    private let ssrProtocolOptions = [
+        "origin",
+        "plain",
+        "verify_simple",
+        "verify_sha1",
+        "auth_simple",
+        "auth_sha1",
+        "auth_sha1_v2",
+        "auth_sha1_v4",
+        "auth-aes128_md5",
+        "auth_aes128_sha1",
+        "auth_chain_a",
+        "auth_chain_b",
+        "auth_chain_c",
+        "auth_chain_d",
+        "auth_chain_e",
+        "auth_chain_f"
+    ]
+    private var ssrObfsOptions: [String] { store.kernelCapabilities.ssrObfs }
+    private let obfsOptions = ["", "salamander", "gecko"]
+    private let bbrProfileOptions = ["auto", "brutal", "bbr"]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Add Manual Node")
+                        .font(.custom(NeonCoreTheme.fontName, size: 26).weight(.bold))
+                        .textCase(.uppercase)
+                    Text("Create a node from a shared URI or from explicit protocol parameters.")
+                        .font(.custom(NeonCoreTheme.fontName, size: 13).weight(.semibold))
+                        .foregroundStyle(NeonCoreTheme.muted)
+                }
+                Spacer()
+                Button {
+                    store.showingManualNodeEditor = false
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(NeonSecondaryButtonStyle())
+            }
+            .padding(20)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Shared URI")
+                            .font(.custom(NeonCoreTheme.fontName, size: 16).weight(.bold))
+                        TextField("vless://, hysteria2://, hy2://, anytls://, ss://, ssr://, http://", text: $store.manualNodeDraft.uri)
+                            .textFieldStyle(NeonTextFieldStyle())
+                        HStack {
+                            Spacer()
+                            Button {
+                                store.importManualNodeURI()
+                            } label: {
+                                Label("Import URI", systemImage: "link")
+                            }
+                            .buttonStyle(NeonSecondaryButtonStyle())
+                        }
+                    }
+                    .padding(16)
+                    .neonPanel()
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Protocol Parameters")
+                            .font(.custom(NeonCoreTheme.fontName, size: 16).weight(.bold))
+                        HStack(spacing: 12) {
+                            manualField("Name", text: $store.manualNodeDraft.name, placeholder: "Optional display name")
+                            Picker("Protocol", selection: $store.manualNodeDraft.protocolName) {
+                                ForEach(ManualNodeProtocol.allCases) { item in
+                                    Text(item.title).tag(item)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .onChange(of: store.manualNodeDraft.protocolName) {
+                                store.manualNodeDraft.applyProtocolDefaults()
+                            }
+                            .frame(width: 220)
+                        }
+                        HStack(spacing: 12) {
+                            manualField("Server", text: $store.manualNodeDraft.host, required: true)
+                            manualField("Port", text: $store.manualNodeDraft.port, required: true)
+                                .frame(width: 120)
+                        }
+                        if store.manualNodeDraft.protocolName != .http && store.manualNodeDraft.protocolName != .direct {
+                            manualField(store.manualNodeDraft.protocolName.credentialLabel, text: $store.manualNodeDraft.credential, secure: store.manualNodeDraft.protocolName != .vless, required: true)
+                        }
+                        protocolSpecificFields
+                    }
+                    .padding(16)
+                    .neonPanel()
+
+                }
+                .padding(20)
+            }
+
+            HStack {
+                if store.manualNodeDraft.supportsCertificateVerificationSkip {
+                    Toggle("Skip certificate verification", isOn: $store.manualNodeDraft.insecure)
+                        .toggleStyle(.switch)
+                }
+                Spacer()
+                Button("Cancel") {
+                    store.showingManualNodeEditor = false
+                }
+                .buttonStyle(NeonSecondaryButtonStyle())
+                Button {
+                    store.addManualNode()
+                } label: {
+                    Label("Save Node", systemImage: "checkmark")
+                }
+                .disabled(store.manualNodeDraft.hasUnsupportedPendingSelection)
+                .buttonStyle(NeonPrimaryButtonStyle(active: false))
+            }
+            .padding(20)
+        }
+        .frame(width: 760, height: 720)
+        .background(NeonCoreTheme.panel)
+    }
+
+    @ViewBuilder
+    private var protocolSpecificFields: some View {
+        switch store.manualNodeDraft.protocolName {
+        case .vless:
+            HStack(spacing: 12) {
+                picker("Security", selection: $store.manualNodeDraft.security, options: securityOptions)
+                picker("Transport", selection: $store.manualNodeDraft.transport, options: transportOptions)
+                picker("Fingerprint", selection: $store.manualNodeDraft.fingerprint, options: fingerprintOptions)
+            }
+            HStack(spacing: 12) {
+                manualField("SNI", text: $store.manualNodeDraft.sni)
+                manualField("Flow", text: $store.manualNodeDraft.flow)
+            }
+            HStack(spacing: 12) {
+                manualField("Reality public key", text: $store.manualNodeDraft.publicKey)
+                manualField("Reality short ID", text: $store.manualNodeDraft.shortID)
+                    .frame(width: 180)
+            }
+            HStack(spacing: 12) {
+                manualField("Transport host", text: $store.manualNodeDraft.transportHost)
+                manualField("Path", text: $store.manualNodeDraft.transportPath)
+                    .frame(width: 220)
+            }
+            HStack(spacing: 12) {
+                manualField("Service name", text: $store.manualNodeDraft.serviceName)
+                manualField("Authority", text: $store.manualNodeDraft.authority)
+            }
+            HStack(spacing: 12) {
+                picker("XHTTP mode", selection: $store.manualNodeDraft.xhttpMode, options: xhttpModeOptions)
+                picker("HTTP version", selection: $store.manualNodeDraft.httpVersion, options: httpVersionOptions)
+            }
+            HStack(spacing: 12) {
+                manualField("XHTTP post bytes", text: $store.manualNodeDraft.scMaxEachPostBytes)
+                manualField("XHTTP post interval ms", text: $store.manualNodeDraft.scMinPostsIntervalMs)
+            }
+            HStack(spacing: 12) {
+                manualField("xmux max concurrency", text: $store.manualNodeDraft.xmuxMaxConcurrency)
+                manualField("xmux max connections", text: $store.manualNodeDraft.xmuxMaxConnections)
+            }
+            HStack(spacing: 12) {
+                manualField("xmux C reuse times", text: $store.manualNodeDraft.xmuxCMaxReuseTimes)
+                manualField("xmux H request times", text: $store.manualNodeDraft.xmuxHMaxRequestTimes)
+                manualField("xmux H reusable secs", text: $store.manualNodeDraft.xmuxHMaxReusableSecs)
+            }
+        case .hysteria2:
+            HStack(spacing: 12) {
+                manualField("SNI / Peer", text: $store.manualNodeDraft.sni)
+                picker("Obfs", selection: $store.manualNodeDraft.obfs, options: obfsOptions)
+                    .frame(width: 170)
+            }
+            manualField("Obfs password", text: $store.manualNodeDraft.obfsPassword, secure: true)
+            HStack(spacing: 12) {
+                manualField("mport", text: $store.manualNodeDraft.mport)
+                manualField("UDP timeout ms", text: $store.manualNodeDraft.udpTimeoutMs)
+                picker("BBR profile", selection: $store.manualNodeDraft.bbrProfile, options: bbrProfileOptions)
+            }
+        case .anytls:
+            manualField("SNI", text: $store.manualNodeDraft.sni)
+            HStack(spacing: 12) {
+                manualField("Idle session timeout", text: $store.manualNodeDraft.idleSessionTimeout)
+                manualField("Min idle session", text: $store.manualNodeDraft.minIdleSession)
+            }
+        case .shadowsocks:
+            picker("Cipher", selection: $store.manualNodeDraft.method, options: methodOptions)
+            HStack(spacing: 12) {
+                optionToggle("TCP fast open", isOn: $store.manualNodeDraft.tcpFastOpen)
+                optionToggle("UDP relay", isOn: $store.manualNodeDraft.udpRelay)
+                optionToggle("UDP over TCP", isOn: $store.manualNodeDraft.udpOverTcp)
+                    .disabled(store.manualNodeDraft.shadowsocksPluginForcesUoT)
+            }
+            HStack(spacing: 12) {
+                picker("Plugin", selection: $store.manualNodeDraft.plugin, options: shadowsocksPluginOptions)
+                    .onChange(of: store.manualNodeDraft.plugin) {
+                        store.manualNodeDraft.applyPluginDefaults()
+                    }
+                picker("Obfuscation", selection: $store.manualNodeDraft.ssObfuscation, options: shadowsocksObfuscationOptions)
+            }
+            if store.manualNodeDraft.shouldShowShadowsocksObfuscationTLS {
+                optionToggle("TLS", isOn: $store.manualNodeDraft.ssObfuscationTLS)
+            }
+            if store.manualNodeDraft.shouldShowShadowsocksXHTTPFields {
+                shadowsocksXHTTPFields
+            }
+            shadowsocksPluginFields
+            manualField("Obfs host", text: $store.manualNodeDraft.obfsHost)
+        case .shadowsocksr:
+            HStack(spacing: 12) {
+                picker("Cipher", selection: $store.manualNodeDraft.method, options: ssrMethodOptions)
+                picker("SSR protocol", selection: $store.manualNodeDraft.ssrProtocol, options: ssrProtocolOptions)
+            }
+            manualField("Protocol parameter", text: $store.manualNodeDraft.ssrProtocolParam)
+            HStack(spacing: 12) {
+                optionToggle("TCP fast open", isOn: $store.manualNodeDraft.tcpFastOpen)
+                optionToggle("UDP relay", isOn: $store.manualNodeDraft.udpRelay)
+            }
+            HStack(spacing: 12) {
+                picker("Obfs", selection: $store.manualNodeDraft.obfs, options: ssrObfsOptions)
+                    .onChange(of: store.manualNodeDraft.obfs) {
+                        store.manualNodeDraft.applySSRObfsDefaults()
+                    }
+                manualField("Obfs parameter", text: $store.manualNodeDraft.obfsHost)
+            }
+            ssrObfsFields
+        case .http:
+            EmptyView()
+        case .direct:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var ssrObfsFields: some View {
+        switch store.manualNodeDraft.obfs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "", "plain":
+            EmptyView()
+        case "http_simple", "http_post":
+            HStack(spacing: 12) {
+                manualField("Custom header", text: $store.manualNodeDraft.ssPluginHeaders)
+            }
+        case "random_head":
+            EmptyView()
+        case "tls1.2_ticket_auth", "tls1.2_ticket_fastauth":
+            EmptyView()
+        default:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var shadowsocksPluginFields: some View {
+        switch store.manualNodeDraft.plugin.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "", "none":
+            EmptyView()
+        case "v2ray-plugin":
+            v2rayPluginFields
+        case "gost", "gost-plugin":
+            gostPluginFields
+        case "shadow-tls", "shadow_tls":
+            shadowTLSPluginFields
+        case "cloak", "ck-client", "external-sip003", "external_sip003", "sip003":
+            cloakPluginFields
+        case "kcptun":
+            kcptunPluginFields
+        default:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var shadowsocksXHTTPFields: some View {
+        HStack(spacing: 12) {
+            picker("XHTTP mode", selection: $store.manualNodeDraft.xhttpMode, options: xhttpModeOptions)
+            picker("HTTP version", selection: $store.manualNodeDraft.httpVersion, options: httpVersionOptions)
+        }
+        HStack(spacing: 12) {
+            manualField("XHTTP post bytes", text: $store.manualNodeDraft.scMaxEachPostBytes)
+            manualField("XHTTP post interval ms", text: $store.manualNodeDraft.scMinPostsIntervalMs)
+        }
+        if store.manualNodeDraft.ssObfuscationTLS {
+            optionToggle("Skip certificate verification", isOn: $store.manualNodeDraft.ssPluginSkipCertVerify)
+        }
+    }
+
+    @ViewBuilder
+    private var v2rayPluginFields: some View {
+        HStack(spacing: 12) {
+            picker("Mode", selection: $store.manualNodeDraft.ssPluginMode, options: shadowsocksPluginModeOptions)
+            manualField("Host", text: $store.manualNodeDraft.ssPluginHost)
+            manualField("Path", text: $store.manualNodeDraft.ssPluginPath)
+        }
+        HStack(spacing: 12) {
+            optionToggle("TLS", isOn: $store.manualNodeDraft.ssPluginTLS)
+        }
+    }
+
+    @ViewBuilder
+    private var gostPluginFields: some View {
+        HStack(spacing: 12) {
+            picker("Mode", selection: $store.manualNodeDraft.ssPluginMode, options: ["websocket"])
+            manualField("Host", text: $store.manualNodeDraft.ssPluginHost)
+            manualField("Path", text: $store.manualNodeDraft.ssPluginPath)
+        }
+        HStack(spacing: 12) {
+            optionToggle("TLS", isOn: $store.manualNodeDraft.ssPluginTLS)
+        }
+    }
+
+    @ViewBuilder
+    private var tlsPluginFields: some View {
+        HStack(spacing: 12) {
+            manualField("Fingerprint", text: $store.manualNodeDraft.ssPluginFingerprint)
+            manualField("Certificate", text: $store.manualNodeDraft.ssPluginCertificate)
+            manualField("Private key", text: $store.manualNodeDraft.ssPluginPrivateKey)
+        }
+        optionToggle("Skip certificate verification", isOn: $store.manualNodeDraft.ssPluginSkipCertVerify)
+    }
+
+    @ViewBuilder
+    private var shadowTLSPluginFields: some View {
+        HStack(spacing: 12) {
+            picker("Version", selection: $store.manualNodeDraft.shadowTLSVersion, options: shadowTLSVersionOptions)
+            manualField("Host", text: $store.manualNodeDraft.shadowTLSHost)
+            manualField("Password", text: $store.manualNodeDraft.shadowTLSPassword, secure: true)
+        }
+        HStack(spacing: 12) {
+            manualField("ALPN", text: $store.manualNodeDraft.shadowTLSALPN)
+        }
+        optionToggle("Skip certificate verification", isOn: $store.manualNodeDraft.ssPluginSkipCertVerify)
+    }
+
+    @ViewBuilder
+    private var cloakPluginFields: some View {
+        HStack(spacing: 12) {
+            manualField("Plugin program", text: $store.manualNodeDraft.ssPluginCertificate)
+            manualField("Plugin options", text: $store.manualNodeDraft.ssPluginHeaders)
+        }
+    }
+
+    @ViewBuilder
+    private var kcptunPluginFields: some View {
+        HStack(spacing: 12) {
+            manualField("Key", text: $store.manualNodeDraft.kcpKey, secure: true)
+            picker("Crypt", selection: $store.manualNodeDraft.kcpCrypt, options: kcpCryptOptions)
+            picker("Mode", selection: $store.manualNodeDraft.kcpMode, options: kcpModeOptions)
+        }
+        HStack(spacing: 12) {
+            manualField("Conn", text: $store.manualNodeDraft.kcpConn)
+            manualField("Auto expire", text: $store.manualNodeDraft.kcpAutoExpire)
+            manualField("Scavenge TTL", text: $store.manualNodeDraft.kcpScavengeTTL)
+            manualField("MTU", text: $store.manualNodeDraft.kcpMTU)
+        }
+        HStack(spacing: 12) {
+            manualField("Rate limit", text: $store.manualNodeDraft.kcpRateLimit)
+            manualField("Send window", text: $store.manualNodeDraft.kcpSndWnd)
+            manualField("Receive window", text: $store.manualNodeDraft.kcpRcvWnd)
+        }
+        HStack(spacing: 12) {
+            manualField("Data shard", text: $store.manualNodeDraft.kcpDataShard)
+            manualField("Parity shard", text: $store.manualNodeDraft.kcpParityShard)
+            manualField("DSCP", text: $store.manualNodeDraft.kcpDSCP)
+        }
+        HStack(spacing: 12) {
+            manualField("No delay", text: $store.manualNodeDraft.kcpNoDelay)
+            manualField("Interval", text: $store.manualNodeDraft.kcpInterval)
+            manualField("Resend", text: $store.manualNodeDraft.kcpResend)
+        }
+        HStack(spacing: 12) {
+            manualField("Socket buffer", text: $store.manualNodeDraft.kcpSockBuf)
+            manualField("SMux version", text: $store.manualNodeDraft.kcpSmuxVer)
+            manualField("SMux buffer", text: $store.manualNodeDraft.kcpSmuxBuf)
+        }
+        HStack(spacing: 12) {
+            manualField("Frame size", text: $store.manualNodeDraft.kcpFrameSize)
+            manualField("Stream buffer", text: $store.manualNodeDraft.kcpStreamBuf)
+            manualField("Keep alive", text: $store.manualNodeDraft.kcpKeepAlive)
+        }
+        HStack(spacing: 12) {
+            optionToggle("Disable compression", isOn: $store.manualNodeDraft.kcpNoComp)
+            optionToggle("ACK no delay", isOn: $store.manualNodeDraft.kcpAckNoDelay)
+            optionToggle("No congestion", isOn: $store.manualNodeDraft.kcpNoCongestion)
+        }
+    }
+
+    private func manualField(_ title: String, text: Binding<String>, secure: Bool = false, placeholder: String? = nil, required: Bool = false) -> some View {
+        let prompt = placeholder ?? manualFieldPlaceholder(for: title, required: required)
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.custom(NeonCoreTheme.fontName, size: 12).weight(.bold))
+                .foregroundStyle(NeonCoreTheme.muted)
+                .textCase(.uppercase)
+            if secure {
+                SecureField(title, text: text, prompt: Text(prompt))
+                    .textFieldStyle(NeonTextFieldStyle())
+            } else {
+                TextField(title, text: text, prompt: Text(prompt))
+                    .textFieldStyle(NeonTextFieldStyle())
+            }
+        }
+    }
+
+    private func manualFieldPlaceholder(for title: String, required: Bool) -> String {
+        if required {
+            switch title.lowercased() {
+            case "port":
+                return "Required, 1-65535"
+            default:
+                return "Required"
+            }
+        }
+
+        switch title.lowercased() {
+        case "port":
+            return "Optional, 1-65535"
+        case "sni", "sni / peer", "sni / host", "transport host", "host", "authority", "server name", "obfs host":
+            return "Optional hostname"
+        case "path":
+            return "Optional, starts with /"
+        case "flow":
+            return "Optional, for example xtls-rprx-vision"
+        case "reality public key", "reality short id", "public key", "private key", "uid", "key":
+            return "Optional, required by that transport when used"
+        case "service name":
+            return "Optional gRPC service name"
+        case "xhttp post bytes", "xhttp post interval ms", "xmux max concurrency", "xmux max connections", "xmux c reuse times", "xmux h request times", "xmux h reusable secs", "udp timeout ms", "min idle session", "conn", "auto expire", "scavenge ttl", "mtu", "rate limit", "send window", "receive window", "data shard", "parity shard", "dscp", "no delay", "interval", "resend", "socket buffer", "smux version", "smux buffer", "frame size", "stream buffer", "keep alive", "connections", "stream timeout":
+            return "Optional, integer >= 0"
+        case "idle session timeout":
+            return "Optional duration, for example 30s"
+        case "mport":
+            return "Optional multi-port, for example 443,8443-8450"
+        case "obfs password", "password":
+            return "Optional password"
+        case "protocol parameter":
+            return "Optional SSR protocol_param"
+        case "obfs parameter":
+            return "Optional SSR obfs_param, host or host#header"
+        case "custom header":
+            return "Optional HTTP header block"
+        case "alpn":
+            return "Optional, comma-separated values"
+        case "fingerprint":
+            return "Optional TLS fingerprint"
+        case "certificate":
+            return "Optional PEM or path"
+        default:
+            return "Optional"
+        }
+    }
+
+    private func optionToggle(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(title, isOn: isOn)
+            .toggleStyle(.switch)
+            .font(.custom(NeonCoreTheme.fontName, size: 12).weight(.bold))
+            .foregroundStyle(NeonCoreTheme.muted)
+            .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
+            .padding(.horizontal, 10)
+            .background(NeonCoreTheme.panel2)
+            .overlay(Rectangle().stroke(NeonCoreTheme.lineBright, lineWidth: 1))
+    }
+
+    private func picker(_ title: String, selection: Binding<String>, options: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.custom(NeonCoreTheme.fontName, size: 12).weight(.bold))
+                .foregroundStyle(NeonCoreTheme.muted)
+                .textCase(.uppercase)
+            Picker(title, selection: selection) {
+                ForEach(options, id: \.self) { option in
+                    Text(option.isEmpty ? "none" : option).tag(option)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, minHeight: 42)
+            .background(NeonCoreTheme.panel2)
+            .overlay(Rectangle().stroke(NeonCoreTheme.lineBright, lineWidth: 1))
         }
     }
 }

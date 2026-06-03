@@ -8,10 +8,12 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 
 mod adapter;
+mod buffer_pool;
 mod connection;
 mod dns;
 mod flow;
 mod outbound;
+mod packet_session;
 mod routing;
 mod session;
 mod tcp_tuning;
@@ -23,6 +25,8 @@ use flow::FlowLink;
 use outbound::OutboundHandler;
 use routing::{RouteDecision, Router};
 use session::{KernelNode, KernelSession, TargetAddress};
+
+const SOCKS_UDP_MAX_IN_FLIGHT: usize = 512;
 
 #[derive(Parser)]
 #[command(name = "neoncore-kernel")]
@@ -45,6 +49,7 @@ enum Command {
         #[arg(long)]
         session: PathBuf,
     },
+    Capabilities,
 }
 
 #[derive(Clone)]
@@ -68,7 +73,177 @@ async fn main() -> anyhow::Result<()> {
             Ok(())
         }
         Command::ResolveServer { session } => resolve_server(session).await,
+        Command::Capabilities => {
+            println!("{}", serde_json::to_string_pretty(&kernel_capabilities())?);
+            Ok(())
+        }
     }
+}
+
+fn kernel_capabilities() -> serde_json::Value {
+    serde_json::json!({
+        "capability_schema_version": 2,
+        "manual_node_schema_version": 1,
+        "packet_session": {
+            "demux": {
+                "target_aware": true,
+                "targetless_fallback": "fifo",
+                "late_packet_policy": "discard_without_waiter"
+            },
+            "shared_by": [
+                "shadowsocks.direct_udp",
+                "shadowsocks.uot",
+                "anytls.uot",
+                "vless.xudp"
+            ]
+        },
+        "shadowsocks": {
+            "udp_modes": ["direct", "uot"],
+            "uot": {
+                "enabled": true,
+                "packet_session": "target_aware",
+                "supported_versions": [1],
+                "requires_explicit_mode_for_plugins": true,
+                "targetless_fallback": "fifo"
+            },
+            "mux": {
+                "tcp": false,
+                "udp": "uot",
+                "xudp": false
+            },
+            "plugins": {
+                "none": {
+                    "tcp": true,
+                    "udp": "direct",
+                    "uot": false,
+                    "native": true,
+                    "multiplex": false
+                },
+                "kcptun": {
+                    "tcp": true,
+                    "udp": "uot",
+                    "uot": true,
+                    "requires_explicit_uot": true,
+                    "native": true,
+                    "multiplex": true,
+                    "pool": { "enabled": true, "idle_timeout_secs": 180 }
+                },
+                "v2ray-plugin": {
+                    "tcp": true,
+                    "modes": ["websocket"],
+                    "udp": "uot",
+                    "uot": true,
+                    "requires_explicit_uot": true,
+                    "native": true,
+                    "multiplex": false
+                },
+                "gost": {
+                    "tcp": true,
+                    "modes": ["websocket"],
+                    "udp": "uot",
+                    "uot": true,
+                    "requires_explicit_uot": true,
+                    "native": true,
+                    "multiplex": false
+                },
+                "gost-plugin": {
+                    "tcp": true,
+                    "modes": ["websocket"],
+                    "udp": "uot",
+                    "uot": true,
+                    "requires_explicit_uot": true,
+                    "native": true,
+                    "multiplex": false
+                },
+                "shadow-tls": {
+                    "tcp": true,
+                    "versions": ["1", "2", "3"],
+                    "udp": "uot",
+                    "uot": true,
+                    "requires_explicit_uot": true,
+                    "native": true,
+                    "multiplex": false
+                },
+                "cloak": {
+                    "tcp": true,
+                    "udp": "uot",
+                    "uot": true,
+                    "requires_explicit_uot": true,
+                    "external_program": true,
+                    "native": false,
+                    "multiplex": false
+                },
+                "external-sip003": {
+                    "tcp": true,
+                    "udp": "uot",
+                    "uot": true,
+                    "requires_explicit_uot": true,
+                    "external_program": true,
+                    "native": false,
+                    "multiplex": false
+                }
+            },
+            "obfuscation": ["none", "http", "tls", "ssl", "h1", "h2", "wss", "websocket", "httpupgrade", "xhttp"],
+            "xhttp": {
+                "modes": ["auto", "stream-one", "stream-up", "packet-up"],
+                "http_versions": ["auto", "1.1", "h2", "h3"],
+                "packet_up": {
+                    "batching": true,
+                    "keep_alive_post": true,
+                    "retry_non_replayable_batches": false
+                }
+            }
+        },
+        "shadowsocksr": {
+            "udp_modes": ["direct", "uot"],
+            "uot": {
+                "enabled": true,
+                "packet_session": "target_aware",
+                "requires_explicit_mode_for_plugins": true
+            },
+            "mux": {
+                "tcp": false,
+                "udp": "uot",
+                "xudp": false
+            },
+            "protocols": [
+                "origin",
+                "verify_simple",
+                "verify_sha1",
+                "auth_simple",
+                "auth_sha1",
+                "auth_sha1_v2",
+                "auth_sha1_v4",
+                "auth_aes128_md5",
+                "auth_aes128_sha1",
+                "auth_chain_a",
+                "auth_chain_b",
+                "auth_chain_c",
+                "auth_chain_d",
+                "auth_chain_e",
+                "auth_chain_f"
+            ],
+            "obfs": ["plain", "http_simple", "http_post", "random_head", "tls1.2_ticket_auth", "tls1.2_ticket_fastauth"],
+            "packet_session": "target_aware"
+        },
+        "vless": {
+            "udp": ["xudp"],
+            "mux": {
+                "xudp": {
+                    "packet_session": "target_aware",
+                    "targetless_fallback": "fifo",
+                    "response_target_metadata": true
+                }
+            }
+        },
+        "anytls": {
+            "udp": ["uot"],
+            "uot": {
+                "packet_session": "target_aware",
+                "targetless_fallback": "fifo"
+            }
+        }
+    })
 }
 
 #[derive(Debug, Serialize)]
@@ -286,7 +461,7 @@ async fn handle_socks5_udp_associate(
     mut client: TcpStream,
     runtime: KernelRuntime,
 ) -> anyhow::Result<()> {
-    let socket = UdpSocket::bind((runtime.session.listen_host.as_str(), 0)).await?;
+    let socket = Arc::new(UdpSocket::bind((runtime.session.listen_host.as_str(), 0)).await?);
     let local = socket.local_addr()?;
     let ip = match local.ip() {
         std::net::IpAddr::V4(ip) => ip.octets(),
@@ -297,6 +472,7 @@ async fn handle_socks5_udp_associate(
     response.extend_from_slice(&local.port().to_be_bytes());
     client.write_all(&response).await?;
 
+    let udp_semaphore = Arc::new(tokio::sync::Semaphore::new(SOCKS_UDP_MAX_IN_FLIGHT));
     let mut udp_buffer = vec![0_u8; 65_536];
     let mut control = [0_u8; 1];
     loop {
@@ -309,18 +485,35 @@ async fn handle_socks5_udp_associate(
             packet = socket.recv_from(&mut udp_buffer) => {
                 let (n, peer) = packet?;
                 let (target, payload) = parse_socks_udp_packet(&udp_buffer[..n])?;
-                let mut context = ConnectionContext::new(
-                    InboundKind::Socks5Udp,
-                    target.clone(),
-                    NetworkCapability::Udp,
-                );
-                match runtime.send_udp(&mut context, payload).await {
-                    Ok(reply) => {
-                        let packet = build_socks_udp_packet(&target, &reply)?;
-                        let _ = socket.send_to(&packet, peer).await;
+                let payload = payload.to_vec();
+                let runtime = runtime.clone();
+                let socket = socket.clone();
+                let permit = match udp_semaphore.clone().try_acquire_owned() {
+                    Ok(permit) => permit,
+                    Err(_) => {
+                        warn!(target = %target, "SOCKS UDP association is at capacity; dropping packet");
+                        continue;
                     }
-                    Err(err) => warn!(error = %err, target = %target, "SOCKS UDP relay failed"),
-                }
+                };
+                tokio::spawn(async move {
+                    let _permit = permit;
+                    let mut context = ConnectionContext::new(
+                        InboundKind::Socks5Udp,
+                        target.clone(),
+                        NetworkCapability::Udp,
+                    );
+                    match runtime.send_udp(&mut context, &payload).await {
+                        Ok(reply) => match build_socks_udp_packet(&target, &reply) {
+                            Ok(packet) => {
+                                let _ = socket.send_to(&packet, peer).await;
+                            }
+                            Err(err) => {
+                                warn!(error = %err, target = %target, "SOCKS UDP response build failed");
+                            }
+                        },
+                        Err(err) => warn!(error = %err, target = %target, "SOCKS UDP relay failed"),
+                    }
+                });
             }
         }
     }
